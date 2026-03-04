@@ -15,6 +15,11 @@ const FEEDBACK_HIT_FLASH_PEAK = 0.36;
 const FEEDBACK_KILL_FLASH_PEAK = 0.66;
 const FEEDBACK_FLASH_DECAY_PER_SECOND = 2.8;
 const FEEDBACK_BANNER_DEFAULT_SECONDS = 0.56;
+const FEEDBACK_PARTICLE_HARD_CAP = 120;
+const FEEDBACK_PARTICLE_RESERVED_FOR_KILL = 18;
+const FEEDBACK_PARTICLE_EVENT_CAP = 20;
+const FEEDBACK_BANNER_RATE_LIMIT_SECONDS = 0.68;
+const FEEDBACK_DANGER_HP_THRESHOLD = 36;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -23,6 +28,23 @@ const startButton = document.getElementById("start-btn");
 const restartButton = document.getElementById("restart-btn");
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("game-canvas");
+const canvasStage = canvas.parentElement;
+
+const feedbackOverlay = document.createElement("div");
+feedbackOverlay.className = "feedback-overlay";
+feedbackOverlay.setAttribute("aria-hidden", "true");
+
+const feedbackDangerLayer = document.createElement("div");
+feedbackDangerLayer.className = "feedback-danger-layer";
+
+const feedbackFlashLayer = document.createElement("div");
+feedbackFlashLayer.className = "feedback-flash-layer";
+
+const feedbackBanner = document.createElement("div");
+feedbackBanner.className = "feedback-center-banner";
+
+feedbackOverlay.append(feedbackDangerLayer, feedbackFlashLayer, feedbackBanner);
+canvasStage.append(feedbackOverlay);
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -168,9 +190,11 @@ const state = {
     hitFlash: 0,
     killFlash: 0,
     killPriorityTimer: 0,
+    dangerOverlay: 0,
     bannerText: "",
     bannerKind: "neutral",
     bannerTimer: 0,
+    lastBannerAt: -999,
   },
 };
 
@@ -434,8 +458,54 @@ function addHitShake(strength, duration) {
   state.shakeTime = Math.max(state.shakeTime, duration);
 }
 
-function spawnParticles(x, y, count, color = 0xfff2a0) {
-  for (let i = 0; i < count; i += 1) {
+function disposeParticle(particle) {
+  world.particleRoot.remove(particle.mesh);
+  particle.mesh.geometry.dispose();
+  particle.mesh.material.dispose();
+}
+
+function reclaimParticleBudget(requiredSlots) {
+  let remaining = requiredSlots;
+  for (let i = state.particles.length - 1; i >= 0 && remaining > 0; i -= 1) {
+    const particle = state.particles[i];
+    if (particle.priority === "kill") {
+      continue;
+    }
+    disposeParticle(particle);
+    state.particles.splice(i, 1);
+    remaining -= 1;
+  }
+}
+
+function spawnParticles(
+  x,
+  y,
+  count,
+  color = 0xfff2a0,
+  options = { priority: "hit", speedMin: 2.2, speedMax: 6.1, lifeMin: 0.2, lifeMax: 0.52 },
+) {
+  const priority = options.priority ?? "hit";
+  const boundedCount = clamp(Math.floor(count), 0, FEEDBACK_PARTICLE_EVENT_CAP);
+  if (boundedCount <= 0) {
+    return;
+  }
+
+  let spawnCount = boundedCount;
+  if (priority === "kill") {
+    const missingSlots = state.particles.length + spawnCount - FEEDBACK_PARTICLE_HARD_CAP;
+    if (missingSlots > 0) {
+      reclaimParticleBudget(missingSlots);
+    }
+    spawnCount = Math.min(spawnCount, FEEDBACK_PARTICLE_HARD_CAP - state.particles.length);
+  } else {
+    const nonKillCap = FEEDBACK_PARTICLE_HARD_CAP - FEEDBACK_PARTICLE_RESERVED_FOR_KILL;
+    if (state.particles.length >= nonKillCap) {
+      return;
+    }
+    spawnCount = Math.min(spawnCount, nonKillCap - state.particles.length);
+  }
+
+  for (let i = 0; i < spawnCount; i += 1) {
     const geometry = new THREE.PlaneGeometry(0.16, 0.16);
     const material = new THREE.MeshBasicMaterial({
       color,
@@ -449,23 +519,31 @@ function spawnParticles(x, y, count, color = 0xfff2a0) {
     world.particleRoot.add(mesh);
 
     const angle = randomRangeVisual(0, Math.PI * 2);
-    const speed = randomRangeVisual(2.4, 6.2);
+    const speed = randomRangeVisual(options.speedMin ?? 2.2, options.speedMax ?? 6.1);
+    const maxLife = randomRangeVisual(options.lifeMin ?? 0.2, options.lifeMax ?? 0.52);
     state.particles.push({
       x,
       y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: randomRangeVisual(0.22, 0.5),
-      maxLife: 0.5,
+      life: maxLife,
+      maxLife,
       mesh,
+      priority,
     });
   }
 }
 
-function setCenterBanner(text, kind = "neutral", duration = FEEDBACK_BANNER_DEFAULT_SECONDS) {
+function setCenterBanner(text, kind = "neutral", duration = FEEDBACK_BANNER_DEFAULT_SECONDS, force = false) {
+  const now = state.time;
+  if (!force && now - state.feedback.lastBannerAt < FEEDBACK_BANNER_RATE_LIMIT_SECONDS) {
+    return false;
+  }
+  state.feedback.lastBannerAt = now;
   state.feedback.bannerText = text;
   state.feedback.bannerKind = kind;
-  state.feedback.bannerTimer = Math.max(state.feedback.bannerTimer, duration);
+  state.feedback.bannerTimer = duration;
+  return true;
 }
 
 function clearCenterBanner() {
@@ -476,19 +554,32 @@ function clearCenterBanner() {
 
 function triggerHitFeedback(x, y) {
   state.feedback.hitFlash = Math.max(state.feedback.hitFlash, FEEDBACK_HIT_FLASH_PEAK);
-  spawnParticles(x, y, 4, 0xffb983);
+  spawnParticles(x, y, 5, 0xffb983, {
+    priority: "hit",
+    speedMin: 1.8,
+    speedMax: 4.1,
+    lifeMin: 0.18,
+    lifeMax: 0.36,
+  });
 }
 
 function triggerKillFeedback(x, y) {
   state.feedback.killFlash = Math.max(state.feedback.killFlash, FEEDBACK_KILL_FLASH_PEAK);
   state.feedback.killPriorityTimer = Math.max(state.feedback.killPriorityTimer, 0.28);
-  spawnParticles(x, y, 13, 0xfff2a0);
+  spawnParticles(x, y, 15, 0xfff2a0, {
+    priority: "kill",
+    speedMin: 2.8,
+    speedMax: 6.4,
+    lifeMin: 0.26,
+    lifeMax: 0.56,
+  });
   addHitShake(0.44, 0.16);
 }
 
 function triggerMilestoneFeedback(killsThisSwing, chainValue) {
   if (killsThisSwing >= 3) {
-    setCenterBanner("TRIPLE KO", "kill", 0.66);
+    setCenterBanner("TRIPLE KO", "kill", 0.66, true);
+    state.feedback.killFlash = Math.max(state.feedback.killFlash, 0.84);
     return;
   }
 
@@ -506,6 +597,8 @@ function resetFeedbackState() {
   state.feedback.hitFlash = 0;
   state.feedback.killFlash = 0;
   state.feedback.killPriorityTimer = 0;
+  state.feedback.dangerOverlay = 0;
+  state.feedback.lastBannerAt = -999;
   clearCenterBanner();
 }
 
@@ -514,6 +607,15 @@ function updateFeedbackState(dt) {
   state.feedback.killFlash = Math.max(0, state.feedback.killFlash - dt * FEEDBACK_FLASH_DECAY_PER_SECOND * 0.9);
   state.feedback.killPriorityTimer = Math.max(0, state.feedback.killPriorityTimer - dt);
   state.feedback.bannerTimer = Math.max(0, state.feedback.bannerTimer - dt);
+
+  const dangerDemand =
+    state.mode === "playing"
+      ? clamp((FEEDBACK_DANGER_HP_THRESHOLD - state.player.hp) / FEEDBACK_DANGER_HP_THRESHOLD, 0, 0.72)
+      : 0;
+  const dangerTarget = state.feedback.killPriorityTimer > 0 ? dangerDemand * 0.35 : dangerDemand;
+  const interp = clamp(dt * 8.2, 0, 1);
+  state.feedback.dangerOverlay += (dangerTarget - state.feedback.dangerOverlay) * interp;
+
   if (state.feedback.bannerTimer <= 0) {
     clearCenterBanner();
   }
@@ -535,9 +637,7 @@ function clearCombatObjects() {
   state.slashEffects = [];
 
   for (const particle of state.particles) {
-    world.particleRoot.remove(particle.mesh);
-    particle.mesh.geometry.dispose();
-    particle.mesh.material.dispose();
+    disposeParticle(particle);
   }
   state.particles = [];
 }
@@ -763,7 +863,13 @@ function updateEnemies(dt) {
       state.player.hp -= 11;
       state.player.invulnerable = 0.54;
       addHitShake(0.32, 0.1);
-      spawnParticles(state.player.x, state.player.y, 8, 0xff88a1);
+      spawnParticles(state.player.x, state.player.y, 8, 0xff88a1, {
+        priority: "danger",
+        speedMin: 1.7,
+        speedMax: 4.4,
+        lifeMin: 0.2,
+        lifeMax: 0.4,
+      });
     }
 
     enemy.flash = Math.max(0, enemy.flash - dt);
@@ -800,9 +906,7 @@ function updateParticles(dt) {
     particle.mesh.material.opacity = Math.max(0, particle.life / particle.maxLife);
 
     if (particle.life <= 0) {
-      world.particleRoot.remove(particle.mesh);
-      particle.mesh.geometry.dispose();
-      particle.mesh.material.dispose();
+      disposeParticle(particle);
       continue;
     }
 
@@ -851,6 +955,26 @@ function updateHud() {
     `${modeText}  Cue ${bannerText}`;
 }
 
+function updateFeedbackOverlay() {
+  const hitOpacity = clamp(state.feedback.hitFlash * 0.6, 0, 0.42);
+  const killOpacity = clamp(state.feedback.killFlash * 0.76, 0, 0.78);
+  const killDominant = killOpacity >= hitOpacity;
+  feedbackFlashLayer.style.opacity = String(killDominant ? killOpacity : hitOpacity);
+  feedbackFlashLayer.dataset.kind = killDominant ? "kill" : "hit";
+
+  feedbackDangerLayer.style.opacity = String(clamp(state.feedback.dangerOverlay, 0, 0.72));
+
+  if (state.feedback.bannerTimer > 0 && state.feedback.bannerText) {
+    feedbackBanner.textContent = state.feedback.bannerText;
+    feedbackBanner.dataset.kind = state.feedback.bannerKind;
+    feedbackBanner.classList.add("is-visible");
+  } else {
+    feedbackBanner.textContent = "";
+    feedbackBanner.dataset.kind = "neutral";
+    feedbackBanner.classList.remove("is-visible");
+  }
+}
+
 function syncVisuals() {
   syncSpritePosition(world.playerSprite, state.player.x, state.player.y);
 
@@ -862,8 +986,7 @@ function syncVisuals() {
   const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
-  const flashBoost = Math.max(state.feedback.hitFlash * 0.12, state.feedback.killFlash * 0.22);
-  renderer.setClearColor(0x81d8ff, 1 - clamp(flashBoost, 0, 0.28));
+  updateFeedbackOverlay();
 
   renderer.render(scene, camera);
 }
@@ -1002,6 +1125,16 @@ function renderGameToText() {
     })),
     activeSlashEffects: state.slashEffects.length,
     activeParticles: state.particles.length,
+    feedback: {
+      hitFlash: Number(state.feedback.hitFlash.toFixed(3)),
+      killFlash: Number(state.feedback.killFlash.toFixed(3)),
+      dangerOverlay: Number(state.feedback.dangerOverlay.toFixed(3)),
+      killPriorityTimer: Number(state.feedback.killPriorityTimer.toFixed(3)),
+      bannerText: state.feedback.bannerText,
+      bannerKind: state.feedback.bannerKind,
+      bannerTimer: Number(state.feedback.bannerTimer.toFixed(3)),
+      particleCap: FEEDBACK_PARTICLE_HARD_CAP,
+    },
   };
 
   return JSON.stringify(payload);

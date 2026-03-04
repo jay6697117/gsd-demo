@@ -134,6 +134,76 @@ body {
   letter-spacing: 0.04em;
 }
 
+.feedback-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9;
+}
+
+.feedback-danger-layer,
+.feedback-flash-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 80ms linear;
+}
+
+.feedback-danger-layer {
+  background:
+    radial-gradient(circle at center, rgba(0, 0, 0, 0) 28%, rgba(255, 60, 60, 0.24) 100%),
+    linear-gradient(180deg, rgba(255, 94, 94, 0.1), rgba(120, 8, 8, 0.34));
+}
+
+.feedback-flash-layer[data-kind="hit"] {
+  background:
+    radial-gradient(circle at center, rgba(255, 224, 180, 0.52) 0%, rgba(255, 140, 86, 0.05) 68%, transparent 100%);
+}
+
+.feedback-flash-layer[data-kind="kill"] {
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 202, 0.66) 0%, rgba(255, 162, 72, 0.2) 62%, transparent 100%);
+}
+
+.feedback-center-banner {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%) translateY(-10px) scale(0.96);
+  min-width: min(74vw, 420px);
+  text-align: center;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  font-family: "Press Start 2P", monospace;
+  font-size: clamp(12px, 1.2vw, 16px);
+  letter-spacing: 0.07em;
+  color: #fff4d8;
+  background: rgba(20, 20, 20, 0.45);
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.7),
+    0 0 12px rgba(255, 255, 255, 0.22);
+  opacity: 0;
+  transition: opacity 90ms linear, transform 90ms linear;
+}
+
+.feedback-center-banner[data-kind="kill"] {
+  color: #fff4b2;
+  border-color: rgba(255, 205, 100, 0.72);
+  background: rgba(81, 38, 10, 0.55);
+}
+
+.feedback-center-banner[data-kind="chain"] {
+  color: #d8ffef;
+  border-color: rgba(128, 255, 208, 0.64);
+  background: rgba(10, 70, 58, 0.52);
+}
+
+.feedback-center-banner.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
 button {
   cursor: pointer;
   border: 2px solid rgba(255, 255, 255, 0.8);
