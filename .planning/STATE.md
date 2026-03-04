@@ -1,33 +1,66 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+current_phase: 01
+current_phase_name: runtime-skeleton-pixel-baseline
+current_plan: 2
+status: executing
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-04T14:11:19.014Z"
+last_activity: 2026-03-04
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 1
+  percent: 20
+---
+
 # STATE: PokeThrees Hunter
 
 **Updated:** 2026-03-04
 
-## 当前阶段
+## Current Position
 
-- 阶段状态：Phase 1/2/3 规划产物已完成（CONTEXT + RESEARCH + PLAN）
-- 当前建议阶段：`Phase 1 执行（按 wave 串行推进）`
-- 执行前置条件：Phase 1/2/3 requirements 均已映射到 PLAN frontmatter 且结构校验通过
+- **Current Phase:** 01
+- **Current Phase Name:** runtime-skeleton-pixel-baseline
+- **Total Phases:** 5
+- **Current Plan:** 2
+- **Total Plans in Phase:** 2
+- **Status:** Ready to execute
+- **Last Activity:** 2026-03-04
+- **Last Activity Description:** Phase 1 execution in progress (01-01 tasks completed)
+- **Progress:** [██░░░░░░░░] 20%
 
-## 项目引用
+## Performance Metrics
 
-- 项目定义：`/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md`
-- 需求基线：`/Users/zhangjinhui/Desktop/gsd-demo/.planning/REQUIREMENTS.md`
-- 研究结论：`/Users/zhangjinhui/Desktop/gsd-demo/.planning/research/SUMMARY.md`
-- 路线图：`/Users/zhangjinhui/Desktop/gsd-demo/.planning/ROADMAP.md`
-- 配置：`/Users/zhangjinhui/Desktop/gsd-demo/.planning/config.json`
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 2 min | 2 tasks | 3 files |
 
-## 最近决策
+## Accumulated Context
 
-- 采用 5 阶段 v1 roadmap：先基础渲染与状态骨架，再战斗闭环，再反馈增强，再控制稳态，最后自动化回归。
-- 保持 `REQUIREMENTS.md` 原有 traceability，不做结构改写：当前已满足每个 v1 requirement 仅映射一个 phase。
-- 将“可观察成功标准”作为每阶段出口条件，避免只完成代码而缺乏可验证结果。
-- 对 `ROADMAP.md` 做了解析兼容修复：统一为 `Phase N:` 标题并补充 `Goal` / `Requirements` 机器可读字段。
-- 已新增 Phase 1/2/3 的规划产物：`*-RESEARCH.md` 与 `*-PLAN.md`，并完成结构与覆盖校验。
+### Decisions
 
-## 下一步命令建议
+- [Phase 1]: Keep phase execution in isolated worktree `codex/execute-phase1` to avoid contaminating main dirty workspace.
+- [Phase 1]: Normalize ROADMAP parsing contract to `Phase N:` + `Goal` + `Requirements` before planning/execution.
+- [Phase 01]: Unified button + keyboard start entry via requestStartRun — Single transition path keeps start behavior deterministic
+- [Phase 01]: Start hints are explicitly mode-scoped — Prevent onboarding text leaking into combat HUD
 
-- 查看路线图与映射：`cat /Users/zhangjinhui/Desktop/gsd-demo/.planning/ROADMAP.md`
-- 执行 Phase 1：`/gsd:execute-phase 1`
-- 执行 Phase 2：`/gsd:execute-phase 2`
-- 执行 Phase 3：`/gsd:execute-phase 3`
-- 查看项目全局进度：`/gsd:progress`
+### Blockers
+
+None
+
+## Session Continuity
+
+- **Last session:** 2026-03-04T14:11:19.012Z
+- **Stopped At:** Completed 01-01-PLAN.md
+- **Resume File:** None
+
+## Project Reference
+
+- Project: `/Users/zhangjinhui/Desktop/gsd-demo-phase1-exec/.planning/PROJECT.md`
+- Roadmap: `/Users/zhangjinhui/Desktop/gsd-demo-phase1-exec/.planning/ROADMAP.md`
+- Requirements: `/Users/zhangjinhui/Desktop/gsd-demo-phase1-exec/.planning/REQUIREMENTS.md`
+- Config: `/Users/zhangjinhui/Desktop/gsd-demo-phase1-exec/.planning/config.json`
