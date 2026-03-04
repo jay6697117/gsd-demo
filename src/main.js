@@ -502,7 +502,7 @@ function enterGameOver() {
 }
 
 function maybeToggleFullscreen() {
-  if (!pressedThisStep.has("KeyF")) {
+  if (!consumeEdge("KeyF")) {
     return;
   }
   if (!document.fullscreenElement) {
@@ -513,7 +513,7 @@ function maybeToggleFullscreen() {
 }
 
 function maybeHandlePauseAndRestart() {
-  if (pressedThisStep.has("KeyP")) {
+  if (consumeEdge("KeyP")) {
     if (state.mode === "playing") {
       state.mode = "paused";
     } else if (state.mode === "paused") {
@@ -521,11 +521,11 @@ function maybeHandlePauseAndRestart() {
     }
   }
 
-  if (state.mode === "gameover" && (pressedThisStep.has("KeyR") || pressedThisStep.has("Enter") || pressedThisStep.has("Space"))) {
+  if (state.mode === "gameover" && (consumeEdge("KeyR") || consumeEdge("Enter") || consumeEdge("Space"))) {
     startRun();
   }
 
-  if (state.mode === "start" && (pressedThisStep.has("Enter") || pressedThisStep.has("Space"))) {
+  if (state.mode === "start" && (consumeEdge("Enter") || consumeEdge("Space"))) {
     startRun();
   }
 }
@@ -546,8 +546,8 @@ function applyPlayerInput(dt) {
     state.player.facingX = xDir / len;
     state.player.facingY = yDir / len;
   } else {
-    state.player.vx *= 0.65;
-    state.player.vy *= 0.65;
+    state.player.vx = 0;
+    state.player.vy = 0;
   }
 
   state.player.x += state.player.vx * dt;
@@ -762,7 +762,7 @@ function updateGameStep(dt) {
 
     applyPlayerInput(dt);
 
-    if (pressedThisStep.has("Space")) {
+    if (consumeEdge("Space")) {
       doAttack();
     }
 
@@ -801,6 +801,14 @@ function updateGameStep(dt) {
   updateHud();
   syncVisuals();
   pressedThisStep.clear();
+}
+
+function consumeEdge(code) {
+  if (!pressedThisStep.has(code)) {
+    return false;
+  }
+  pressedThisStep.delete(code);
+  return true;
 }
 
 let accumulator = 0;
