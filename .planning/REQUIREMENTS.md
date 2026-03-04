@@ -23,8 +23,8 @@
 
 ### Feedback & Pixel Art
 
-- [ ] **VIZ-01**: User sees HD pixel art style rendering with nearest-neighbor visual clarity.
-- [ ] **VIZ-02**: User sees layered background and readable foreground contrast during combat.
+- [x] **VIZ-01**: User sees HD pixel art style rendering with nearest-neighbor visual clarity.
+- [x] **VIZ-02**: User sees layered background and readable foreground contrast during combat.
 - [ ] **VIZ-03**: User sees hit/kill feedback (flash, shake, or particles) when attacks land.
 - [ ] **VIZ-04**: User sees real-time HUD values for HP, score, time survived, and kills.
 
@@ -76,8 +76,8 @@
 | COMB-04 | Phase 2 | Pending |
 | COMB-05 | Phase 2 | Pending |
 | COMB-06 | Phase 2 | Pending |
-| VIZ-01 | Phase 1 | Pending |
-| VIZ-02 | Phase 1 | Pending |
+| VIZ-01 | Phase 1 | Complete |
+| VIZ-02 | Phase 1 | Complete |
 | VIZ-03 | Phase 3 | Pending |
 | VIZ-04 | Phase 2 | Pending |
 | UX-01 | Phase 4 | Pending |
