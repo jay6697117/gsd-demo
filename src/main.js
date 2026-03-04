@@ -6,6 +6,8 @@ const ARENA_HALF_HEIGHT = 11.5;
 const PLAYER_BASE_SPEED = 9.2;
 const PLAYER_ATTACK_COOLDOWN = 0.32;
 const PLAYER_ATTACK_RADIUS = 2.9;
+const PLAYER_ATTACK_DAMAGE = 21;
+const PLAYER_ATTACK_FRONT_DOT_THRESHOLD = -0.2;
 const PLAYER_MAX_HP = 100;
 
 const startScreen = document.getElementById("start-screen");
@@ -234,14 +236,23 @@ function createRng(seed) {
   };
 }
 
-let rng = createRng(state.randomSeed);
+function createVisualSeed(seed) {
+  return (seed ^ 0x9e3779b9) >>> 0;
+}
 
-function randomRange(min, max) {
-  return min + (max - min) * rng();
+let simulationRng = createRng(state.randomSeed);
+let visualRng = createRng(createVisualSeed(state.randomSeed));
+
+function randomRangeSimulation(min, max) {
+  return min + (max - min) * simulationRng();
+}
+
+function randomRangeVisual(min, max) {
+  return min + (max - min) * visualRng();
 }
 
 function chooseEnemyType() {
-  const roll = rng();
+  const roll = simulationRng();
   if (roll < 0.42) {
     return { key: "leafling", hp: 26, speed: 3.1, points: 100, pattern: PATTERN_LEAFLING };
   }
@@ -371,9 +382,9 @@ function clamp(value, min, max) {
 
 function spawnEnemy() {
   const enemyType = chooseEnemyType();
-  const side = Math.floor(rng() * 4);
-  const xEdge = randomRange(-ARENA_HALF_WIDTH + 0.8, ARENA_HALF_WIDTH - 0.8);
-  const yEdge = randomRange(-ARENA_HALF_HEIGHT + 0.8, ARENA_HALF_HEIGHT - 0.8);
+  const side = Math.floor(simulationRng() * 4);
+  const xEdge = randomRangeSimulation(-ARENA_HALF_WIDTH + 0.8, ARENA_HALF_WIDTH - 0.8);
+  const yEdge = randomRangeSimulation(-ARENA_HALF_HEIGHT + 0.8, ARENA_HALF_HEIGHT - 0.8);
 
   let x = xEdge;
   let y = yEdge;
@@ -422,14 +433,14 @@ function spawnParticles(x, y, count, color = 0xfff2a0) {
     mesh.position.set(x, 0.06, y);
     world.particleRoot.add(mesh);
 
-    const angle = randomRange(0, Math.PI * 2);
-    const speed = randomRange(2.4, 6.2);
+    const angle = randomRangeVisual(0, Math.PI * 2);
+    const speed = randomRangeVisual(2.4, 6.2);
     state.particles.push({
       x,
       y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: randomRange(0.22, 0.5),
+      life: randomRangeVisual(0.22, 0.5),
       maxLife: 0.5,
       mesh,
     });
@@ -483,7 +494,8 @@ function startRun() {
   state.shakeStrength = 0;
   // Keep run initialization deterministic for repeatable automated testing.
   state.randomSeed = 0x57b1c4;
-  rng = createRng(state.randomSeed);
+  simulationRng = createRng(state.randomSeed);
+  visualRng = createRng(createVisualSeed(state.randomSeed));
 
   for (let i = 0; i < 3; i += 1) {
     spawnEnemy();
@@ -587,8 +599,9 @@ function doAttack() {
     mesh: slashMesh,
   });
 
+  const orderedEnemies = state.enemies.slice().sort((a, b) => a.id - b.id);
   let anyHit = false;
-  for (const enemy of state.enemies) {
+  for (const enemy of orderedEnemies) {
     const dx = enemy.x - state.player.x;
     const dy = enemy.y - state.player.y;
     const distance = Math.hypot(dx, dy);
@@ -599,11 +612,11 @@ function doAttack() {
     const nx = distance > 0 ? dx / distance : 0;
     const ny = distance > 0 ? dy / distance : 0;
     const frontDot = nx * state.player.facingX + ny * state.player.facingY;
-    if (frontDot < -0.2) {
+    if (frontDot < PLAYER_ATTACK_FRONT_DOT_THRESHOLD) {
       continue;
     }
 
-    enemy.hp -= 21;
+    enemy.hp -= PLAYER_ATTACK_DAMAGE;
     enemy.flash = 0.1;
     anyHit = true;
   }
@@ -613,7 +626,7 @@ function doAttack() {
   }
 
   const survivors = [];
-  for (const enemy of state.enemies) {
+  for (const enemy of orderedEnemies) {
     if (enemy.hp > 0) {
       survivors.push(enemy);
       continue;
@@ -716,7 +729,7 @@ function updateSpawning(dt) {
 
   spawnEnemy();
   const intensity = Math.min(1, state.time / 65);
-  state.spawnCooldown = clamp(1.1 - intensity * 0.78 + randomRange(-0.05, 0.05), 0.24, 1.1);
+  state.spawnCooldown = clamp(1.1 - intensity * 0.78 + randomRangeSimulation(-0.05, 0.05), 0.24, 1.1);
 }
 
 function updateHud() {
@@ -739,8 +752,8 @@ function syncVisuals() {
     syncSpritePosition(enemy.sprite, enemy.x, enemy.y);
   }
 
-  const shakeX = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
-  const shakeZ = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
+  const shakeX = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
+  const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
 
