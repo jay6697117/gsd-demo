@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import {
   consumeEdge,
+  getFocusStatusLabel,
+  resolveFullscreenToggleIntent,
   resolveFocusLossMode,
   resolvePauseMode,
   shouldClearInputForVisibility,
@@ -225,6 +227,8 @@ const state = {
       lastResult: "idle",
       lastError: null,
       lastAt: 0,
+      attemptCount: 0,
+      failureCount: 0,
     },
   },
 };
@@ -365,6 +369,7 @@ function requestFullscreenTransition(intent, source) {
   state.control.fullscreen.lastSource = source;
   state.control.fullscreen.lastAt = now;
   state.control.fullscreen.lastError = null;
+  state.control.fullscreen.attemptCount += 1;
 
   if (intent === "exit" && !document.fullscreenElement) {
     state.control.fullscreen.lastResult = "noop";
@@ -388,6 +393,8 @@ function requestFullscreenTransition(intent, source) {
     .catch((error) => {
       state.control.fullscreen.lastResult = "rejected";
       state.control.fullscreen.lastError = normalizeErrorMessage(error);
+      state.control.fullscreen.failureCount += 1;
+      setCenterBanner("FULLSCREEN UNAVAILABLE", "neutral", 0.72, true);
     });
 }
 
@@ -799,6 +806,8 @@ function startRun() {
   state.control.fullscreen.lastResult = "idle";
   state.control.fullscreen.lastError = null;
   state.control.fullscreen.lastAt = Number(state.time.toFixed(3));
+  state.control.fullscreen.attemptCount = 0;
+  state.control.fullscreen.failureCount = 0;
   state.control.pause.lastTransition = "start->playing";
   state.control.pause.lastFrom = "start";
   state.control.pause.lastTo = "playing";
@@ -840,11 +849,7 @@ function maybeToggleFullscreen() {
   if (!consumeEdge(pressedThisStep, "KeyF")) {
     return;
   }
-  if (!document.fullscreenElement) {
-    requestFullscreenTransition("enter", "toggle-key");
-  } else {
-    requestFullscreenTransition("exit", "toggle-key");
-  }
+  requestFullscreenTransition(resolveFullscreenToggleIntent(Boolean(document.fullscreenElement)), "toggle-key");
 }
 
 function maybeHandlePauseAndRestart() {
@@ -1092,17 +1097,19 @@ function updateHud() {
     modeText = `RESTART ${state.restartTimer.toFixed(1)}s`;
   }
 
-  let focusText = state.control.focus.hasWindowFocus ? "FOCUS OK" : "FOCUS LOST";
-  if (state.mode === "paused" && state.control.focus.recoveryPending) {
-    focusText = "FOCUS RECOVERED · PRESS P";
-  }
+  const focusText = getFocusStatusLabel({
+    mode: state.mode,
+    hasWindowFocus: state.control.focus.hasWindowFocus,
+    recoveryPending: state.control.focus.recoveryPending,
+  });
+  const fullscreenText = state.control.fullscreen.isFullscreen ? "FS ON" : "FS OFF";
 
   hud.textContent =
     `HP ${hp}/${PLAYER_MAX_HP}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
-    `${modeText}  ${focusText}\n` +
+    `${modeText}  ${focusText}  ${fullscreenText}\n` +
     `Cue ${bannerText}`;
 }
 
@@ -1269,6 +1276,8 @@ function renderGameToText() {
       lastResult: state.control.fullscreen.lastResult,
       lastError: state.control.fullscreen.lastError,
       lastAt: Number(state.control.fullscreen.lastAt.toFixed(3)),
+      attemptCount: state.control.fullscreen.attemptCount,
+      failureCount: state.control.fullscreen.failureCount,
     },
     focusState: {
       visibility: state.control.focus.visibility,

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   consumeEdge,
+  getFocusStatusLabel,
+  resolveFullscreenToggleIntent,
   resolveFocusLossMode,
   resolvePauseMode,
   shouldClearInputForVisibility,
@@ -34,6 +36,26 @@ test("shouldClearInputForVisibility enforces hidden-tab input reset", () => {
   assert.equal(shouldClearInputForVisibility("visible"), false);
   assert.equal(shouldClearInputForVisibility("hidden"), true);
   assert.equal(shouldClearInputForVisibility("prerender"), true);
+});
+
+test("resolveFullscreenToggleIntent maps fullscreen state to action intent", () => {
+  assert.equal(resolveFullscreenToggleIntent(false), "enter");
+  assert.equal(resolveFullscreenToggleIntent(true), "exit");
+});
+
+test("getFocusStatusLabel reflects recovery, focused, and blurred states", () => {
+  assert.equal(
+    getFocusStatusLabel({ mode: "paused", hasWindowFocus: true, recoveryPending: true }),
+    "FOCUS RECOVERED · PRESS P",
+  );
+  assert.equal(
+    getFocusStatusLabel({ mode: "playing", hasWindowFocus: true, recoveryPending: false }),
+    "FOCUS OK",
+  );
+  assert.equal(
+    getFocusStatusLabel({ mode: "playing", hasWindowFocus: false, recoveryPending: false }),
+    "FOCUS LOST",
+  );
 });
 
 test("sortedKeys returns stable alphabetical key listing", () => {

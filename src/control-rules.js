@@ -24,6 +24,17 @@ export function shouldClearInputForVisibility(visibilityState) {
   return visibilityState !== "visible";
 }
 
+export function resolveFullscreenToggleIntent(isFullscreen) {
+  return isFullscreen ? "exit" : "enter";
+}
+
+export function getFocusStatusLabel({ mode, hasWindowFocus, recoveryPending }) {
+  if (mode === "paused" && recoveryPending) {
+    return "FOCUS RECOVERED · PRESS P";
+  }
+  return hasWindowFocus ? "FOCUS OK" : "FOCUS LOST";
+}
+
 export function sortedKeys(setLike) {
   if (!setLike) {
     return [];
