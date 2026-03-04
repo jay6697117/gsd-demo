@@ -11,6 +11,10 @@ const PLAYER_ATTACK_FRONT_DOT_THRESHOLD = -0.2;
 const PLAYER_MAX_HP = 100;
 const MAX_ACTIVE_ENEMIES = 26;
 const RESTART_TRANSITION_SECONDS = 0.8;
+const FEEDBACK_HIT_FLASH_PEAK = 0.36;
+const FEEDBACK_KILL_FLASH_PEAK = 0.66;
+const FEEDBACK_FLASH_DECAY_PER_SECOND = 2.8;
+const FEEDBACK_BANNER_DEFAULT_SECONDS = 0.56;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -160,6 +164,14 @@ const state = {
   shakeStrength: 0,
   gameOverSummary: "",
   restartTimer: 0,
+  feedback: {
+    hitFlash: 0,
+    killFlash: 0,
+    killPriorityTimer: 0,
+    bannerText: "",
+    bannerKind: "neutral",
+    bannerTimer: 0,
+  },
 };
 
 const keyboardDown = new Set();
@@ -450,6 +462,63 @@ function spawnParticles(x, y, count, color = 0xfff2a0) {
   }
 }
 
+function setCenterBanner(text, kind = "neutral", duration = FEEDBACK_BANNER_DEFAULT_SECONDS) {
+  state.feedback.bannerText = text;
+  state.feedback.bannerKind = kind;
+  state.feedback.bannerTimer = Math.max(state.feedback.bannerTimer, duration);
+}
+
+function clearCenterBanner() {
+  state.feedback.bannerText = "";
+  state.feedback.bannerKind = "neutral";
+  state.feedback.bannerTimer = 0;
+}
+
+function triggerHitFeedback(x, y) {
+  state.feedback.hitFlash = Math.max(state.feedback.hitFlash, FEEDBACK_HIT_FLASH_PEAK);
+  spawnParticles(x, y, 4, 0xffb983);
+}
+
+function triggerKillFeedback(x, y) {
+  state.feedback.killFlash = Math.max(state.feedback.killFlash, FEEDBACK_KILL_FLASH_PEAK);
+  state.feedback.killPriorityTimer = Math.max(state.feedback.killPriorityTimer, 0.28);
+  spawnParticles(x, y, 13, 0xfff2a0);
+  addHitShake(0.44, 0.16);
+}
+
+function triggerMilestoneFeedback(killsThisSwing, chainValue) {
+  if (killsThisSwing >= 3) {
+    setCenterBanner("TRIPLE KO", "kill", 0.66);
+    return;
+  }
+
+  if (killsThisSwing === 2) {
+    setCenterBanner("DOUBLE KO", "kill", 0.62);
+    return;
+  }
+
+  if (chainValue >= 3 && chainValue % 3 === 0) {
+    setCenterBanner(`CHAIN x${chainValue}`, "chain", 0.58);
+  }
+}
+
+function resetFeedbackState() {
+  state.feedback.hitFlash = 0;
+  state.feedback.killFlash = 0;
+  state.feedback.killPriorityTimer = 0;
+  clearCenterBanner();
+}
+
+function updateFeedbackState(dt) {
+  state.feedback.hitFlash = Math.max(0, state.feedback.hitFlash - dt * FEEDBACK_FLASH_DECAY_PER_SECOND);
+  state.feedback.killFlash = Math.max(0, state.feedback.killFlash - dt * FEEDBACK_FLASH_DECAY_PER_SECOND * 0.9);
+  state.feedback.killPriorityTimer = Math.max(0, state.feedback.killPriorityTimer - dt);
+  state.feedback.bannerTimer = Math.max(0, state.feedback.bannerTimer - dt);
+  if (state.feedback.bannerTimer <= 0) {
+    clearCenterBanner();
+  }
+}
+
 function clearCombatObjects() {
   for (const enemy of state.enemies) {
     world.enemyRoot.remove(enemy.sprite);
@@ -496,6 +565,7 @@ function startRun() {
   state.shakeTime = 0;
   state.shakeStrength = 0;
   state.restartTimer = 0;
+  resetFeedbackState();
   // Keep run initialization deterministic for repeatable automated testing.
   state.randomSeed = 0x57b1c4;
   simulationRng = createRng(state.randomSeed);
@@ -514,6 +584,7 @@ function enterGameOver() {
   state.mode = "gameover";
   state.gameOverSummary = `Time ${state.time.toFixed(1)}s · Score ${Math.floor(state.score)} · Kills ${state.kills}`;
   state.restartTimer = 0;
+  clearCenterBanner();
   gameoverStats.textContent = state.gameOverSummary;
   gameoverScreen.classList.remove("hidden");
 }
@@ -613,7 +684,7 @@ function doAttack() {
   });
 
   const orderedEnemies = state.enemies.slice().sort((a, b) => a.id - b.id);
-  let anyHit = false;
+  const hitMoments = [];
   for (const enemy of orderedEnemies) {
     const dx = enemy.x - state.player.x;
     const dy = enemy.y - state.player.y;
@@ -631,14 +702,11 @@ function doAttack() {
 
     enemy.hp -= PLAYER_ATTACK_DAMAGE;
     enemy.flash = 0.1;
-    anyHit = true;
-  }
-
-  if (anyHit) {
-    addHitShake(0.2, 0.06);
+    hitMoments.push({ x: enemy.x, y: enemy.y });
   }
 
   const survivors = [];
+  const killMoments = [];
   for (const enemy of orderedEnemies) {
     if (enemy.hp > 0) {
       survivors.push(enemy);
@@ -658,12 +726,21 @@ function doAttack() {
       state.chain = 1;
     }
     state.chainTimer = 2.4;
-
-    spawnParticles(enemy.x, enemy.y, 13, 0xfff2a0);
-    addHitShake(0.36, 0.12);
+    killMoments.push({ x: enemy.x, y: enemy.y });
   }
 
   state.enemies = survivors;
+
+  for (const hit of hitMoments) {
+    triggerHitFeedback(hit.x, hit.y);
+  }
+
+  if (killMoments.length > 0) {
+    for (const kill of killMoments) {
+      triggerKillFeedback(kill.x, kill.y);
+    }
+    triggerMilestoneFeedback(killMoments.length, state.chain);
+  }
 }
 
 function updateEnemies(dt) {
@@ -754,6 +831,7 @@ function updateHud() {
   const hp = Math.max(0, Math.floor(state.player.hp));
   const score = Math.floor(state.score);
   const chainText = state.chain > 1 && state.chainTimer > 0 ? `x${state.chain}` : "-";
+  const bannerText = state.feedback.bannerTimer > 0 ? state.feedback.bannerText : "-";
   const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
 
   let modeText = "ACTIVE";
@@ -770,7 +848,7 @@ function updateHud() {
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
-    `${modeText}`;
+    `${modeText}  Cue ${bannerText}`;
 }
 
 function syncVisuals() {
@@ -784,6 +862,8 @@ function syncVisuals() {
   const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
+  const flashBoost = Math.max(state.feedback.hitFlash * 0.12, state.feedback.killFlash * 0.22);
+  renderer.setClearColor(0x81d8ff, 1 - clamp(flashBoost, 0, 0.28));
 
   renderer.render(scene, camera);
 }
@@ -811,6 +891,7 @@ function updateGameStep(dt) {
     updateSpawning(dt);
     updateSlashEffects(dt);
     updateParticles(dt);
+    updateFeedbackState(dt);
 
     if (state.player.hp <= 0) {
       state.player.hp = 0;
@@ -823,9 +904,11 @@ function updateGameStep(dt) {
     if (state.restartTimer <= 0) {
       startRun();
     }
+    updateFeedbackState(dt);
   } else {
     updateSlashEffects(dt);
     updateParticles(dt);
+    updateFeedbackState(dt);
   }
 
   state.shakeTime = Math.max(0, state.shakeTime - dt);
