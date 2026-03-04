@@ -16,6 +16,7 @@ const startButton = document.getElementById("start-btn");
 const restartButton = document.getElementById("restart-btn");
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("game-canvas");
+const startControls = document.getElementById("start-controls");
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -566,6 +567,13 @@ function maybeHandlePauseAndRestart() {
   }
 }
 
+function setStartHintVisibility(isVisible) {
+  if (!startControls) {
+    return;
+  }
+  startControls.classList.toggle("hidden", !isVisible);
+}
+
 function applyPlayerInput(dt) {
   const left = keyboardDown.has("ArrowLeft") || keyboardDown.has("KeyA");
   const right = keyboardDown.has("ArrowRight") || keyboardDown.has("KeyD");
@@ -823,12 +831,15 @@ function updateGameStep(dt) {
 
   if (state.mode === "start" || state.mode === "starting") {
     startScreen.classList.remove("hidden");
+    setStartHintVisibility(true);
     gameoverScreen.classList.add("hidden");
     hud.classList.add("hidden");
   } else if (state.mode === "gameover") {
+    setStartHintVisibility(false);
     gameoverScreen.classList.remove("hidden");
     hud.classList.remove("hidden");
   } else {
+    setStartHintVisibility(false);
     startScreen.classList.add("hidden");
     gameoverScreen.classList.add("hidden");
     hud.classList.remove("hidden");
