@@ -7,6 +7,9 @@ const PLAYER_BASE_SPEED = 9.2;
 const PLAYER_ATTACK_COOLDOWN = 0.32;
 const PLAYER_ATTACK_RADIUS = 2.9;
 const PLAYER_MAX_HP = 100;
+const START_TRANSITION_SECONDS = 0.96;
+const RENDER_PIXEL_RATIO_CAP = 1.5;
+const PIXEL_GRID_STEP = 1 / 16;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -15,6 +18,7 @@ const startButton = document.getElementById("start-btn");
 const restartButton = document.getElementById("restart-btn");
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("game-canvas");
+const startControls = document.getElementById("start-controls");
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -159,6 +163,7 @@ const state = {
 
 const keyboardDown = new Set();
 const pressedThisStep = new Set();
+let startTransitionHandle = null;
 
 const world = {
   playerSprite: null,
@@ -219,7 +224,7 @@ window.addEventListener("fullscreenchange", () => {
 });
 
 startButton.addEventListener("click", () => {
-  startRun();
+  requestStartRun();
 });
 
 restartButton.addEventListener("click", () => {
@@ -258,11 +263,16 @@ function makeCanvasTexture(width, height, drawFn) {
   const ctx = texCanvas.getContext("2d", { alpha: true });
   drawFn(ctx, width, height);
   const texture = new THREE.CanvasTexture(texCanvas);
+  applyPixelTexturePolicy(texture);
+  return texture;
+}
+
+function applyPixelTexturePolicy(texture) {
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
   texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+  texture.needsUpdate = true;
 }
 
 function pixelTextureFromPattern(pattern, palette) {
@@ -295,27 +305,28 @@ function createSprite(pattern, palette, worldSize) {
   const aspect = pattern.length > 0 ? pattern[0].length / pattern.length : 1;
   sprite.scale.set(worldSize * aspect, worldSize, 1);
   sprite.position.set(0, 0.35, 0);
+  sprite.renderOrder = 6;
   return sprite;
 }
 
 function createGroundTexture() {
   return makeCanvasTexture(512, 512, (ctx, width, height) => {
     const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, "#98f8be");
-    grad.addColorStop(0.6, "#68d3b2");
-    grad.addColorStop(1, "#5fa8e7");
+    grad.addColorStop(0, "#90ddb6");
+    grad.addColorStop(0.6, "#6dc0b7");
+    grad.addColorStop(1, "#5d98cf");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
     for (let y = 0; y < height; y += 16) {
       for (let x = 0; x < width; x += 16) {
-        const shade = (x + y) % 32 === 0 ? "rgba(255,255,255,0.13)" : "rgba(11,58,76,0.08)";
+        const shade = (x + y) % 32 === 0 ? "rgba(255,255,255,0.09)" : "rgba(11,58,76,0.05)";
         ctx.fillStyle = shade;
         ctx.fillRect(x, y, 16, 16);
       }
     }
 
-    ctx.strokeStyle = "rgba(9,36,58,0.22)";
+    ctx.strokeStyle = "rgba(11,37,58,0.18)";
     ctx.lineWidth = 4;
     ctx.strokeRect(6, 6, width - 12, height - 12);
   });
@@ -336,7 +347,7 @@ function buildWorld() {
     new THREE.Vector3(-ARENA_HALF_WIDTH, 0.05, ARENA_HALF_HEIGHT),
     new THREE.Vector3(-ARENA_HALF_WIDTH, 0.05, -ARENA_HALF_HEIGHT),
   ]);
-  const rim = new THREE.Line(rimGeometry, new THREE.LineBasicMaterial({ color: 0x173f66 }));
+  const rim = new THREE.Line(rimGeometry, new THREE.LineBasicMaterial({ color: 0x295576, transparent: true, opacity: 0.75 }));
   scene.add(rim);
   world.arenaBounds = rim;
 
@@ -348,7 +359,7 @@ function resizeRenderer() {
   const rect = canvas.parentElement.getBoundingClientRect();
   const width = Math.max(2, Math.floor(rect.width));
   const height = Math.max(2, Math.floor(rect.height));
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER_PIXEL_RATIO_CAP));
   renderer.setSize(width, height, false);
 
   const aspect = width / height;
@@ -362,7 +373,11 @@ function resizeRenderer() {
 }
 
 function syncSpritePosition(sprite, x, y) {
-  sprite.position.set(x, 0.38, y);
+  sprite.position.set(alignToPixelGrid(x), 0.38, alignToPixelGrid(y));
+}
+
+function alignToPixelGrid(value) {
+  return Math.round(value / PIXEL_GRID_STEP) * PIXEL_GRID_STEP;
 }
 
 function clamp(value, min, max) {
@@ -414,12 +429,13 @@ function spawnParticles(x, y, count, color = 0xfff2a0) {
     const material = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 1,
+      opacity: 0.88,
       side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(x, 0.06, y);
+    mesh.position.set(x, 0.08, y);
+    mesh.renderOrder = 2;
     world.particleRoot.add(mesh);
 
     const angle = randomRange(0, Math.PI * 2);
@@ -459,7 +475,40 @@ function clearCombatObjects() {
   state.particles = [];
 }
 
+function clearInputBuffers() {
+  keyboardDown.clear();
+  pressedThisStep.clear();
+}
+
+function cancelStartTransition() {
+  if (startTransitionHandle !== null) {
+    clearTimeout(startTransitionHandle);
+    startTransitionHandle = null;
+  }
+}
+
+function requestStartRun() {
+  if (state.mode !== "start" || startTransitionHandle !== null) {
+    return;
+  }
+
+  state.mode = "starting";
+  startScreen.classList.add("is-transitioning");
+  clearInputBuffers();
+
+  if (!document.fullscreenElement) {
+    canvas.requestFullscreen?.().catch(() => {});
+  }
+
+  startTransitionHandle = window.setTimeout(() => {
+    startTransitionHandle = null;
+    startRun();
+  }, START_TRANSITION_SECONDS * 1000);
+}
+
 function startRun() {
+  cancelStartTransition();
+  clearInputBuffers();
   clearCombatObjects();
   state.mode = "playing";
   state.time = 0;
@@ -490,6 +539,7 @@ function startRun() {
   }
 
   startScreen.classList.add("hidden");
+  startScreen.classList.remove("is-transitioning");
   gameoverScreen.classList.add("hidden");
   hud.classList.remove("hidden");
 }
@@ -526,8 +576,15 @@ function maybeHandlePauseAndRestart() {
   }
 
   if (state.mode === "start" && (pressedThisStep.has("Enter") || pressedThisStep.has("Space"))) {
-    startRun();
+    requestStartRun();
   }
+}
+
+function setStartHintVisibility(isVisible) {
+  if (!startControls) {
+    return;
+  }
+  startControls.classList.toggle("hidden", !isVisible);
 }
 
 function applyPlayerInput(dt) {
@@ -568,14 +625,15 @@ function doAttack() {
   const slashMaterial = new THREE.MeshBasicMaterial({
     color: 0xff7b3b,
     transparent: true,
-    opacity: 0.45,
-    depthTest: false,
+    opacity: 0.3,
+    depthTest: true,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
   const slashMesh = new THREE.Mesh(slashGeometry, slashMaterial);
   slashMesh.rotation.x = -Math.PI / 2;
-  slashMesh.position.set(state.player.x, 0.44, state.player.y);
+  slashMesh.position.set(state.player.x, 0.14, state.player.y);
+  slashMesh.renderOrder = 2;
   world.slashRoot.add(slashMesh);
 
   state.slashEffects.push({
@@ -741,8 +799,8 @@ function syncVisuals() {
 
   const shakeX = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
   const shakeZ = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
-  camera.position.x = shakeX;
-  camera.position.z = shakeZ;
+  camera.position.x = alignToPixelGrid(shakeX);
+  camera.position.z = alignToPixelGrid(shakeZ);
 
   renderer.render(scene, camera);
 }
@@ -785,14 +843,17 @@ function updateGameStep(dt) {
     state.shakeStrength = 0;
   }
 
-  if (state.mode === "start") {
+  if (state.mode === "start" || state.mode === "starting") {
     startScreen.classList.remove("hidden");
+    setStartHintVisibility(true);
     gameoverScreen.classList.add("hidden");
     hud.classList.add("hidden");
   } else if (state.mode === "gameover") {
+    setStartHintVisibility(false);
     gameoverScreen.classList.remove("hidden");
     hud.classList.remove("hidden");
   } else {
+    setStartHintVisibility(false);
     startScreen.classList.add("hidden");
     gameoverScreen.classList.add("hidden");
     hud.classList.remove("hidden");
