@@ -6,10 +6,11 @@ const ARENA_HALF_HEIGHT = 11.5;
 const PLAYER_BASE_SPEED = 9.2;
 const PLAYER_ATTACK_COOLDOWN = 0.32;
 const PLAYER_ATTACK_RADIUS = 2.9;
+const PLAYER_ATTACK_DAMAGE = 21;
+const PLAYER_ATTACK_FRONT_DOT_THRESHOLD = -0.2;
 const PLAYER_MAX_HP = 100;
-const START_TRANSITION_SECONDS = 0.96;
-const RENDER_PIXEL_RATIO_CAP = 1.5;
-const PIXEL_GRID_STEP = 1 / 16;
+const MAX_ACTIVE_ENEMIES = 26;
+const RESTART_TRANSITION_SECONDS = 0.8;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -18,7 +19,6 @@ const startButton = document.getElementById("start-btn");
 const restartButton = document.getElementById("restart-btn");
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("game-canvas");
-const startControls = document.getElementById("start-controls");
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -159,11 +159,11 @@ const state = {
   shakeTime: 0,
   shakeStrength: 0,
   gameOverSummary: "",
+  restartTimer: 0,
 };
 
 const keyboardDown = new Set();
 const pressedThisStep = new Set();
-let startTransitionHandle = null;
 
 const world = {
   playerSprite: null,
@@ -224,11 +224,11 @@ window.addEventListener("fullscreenchange", () => {
 });
 
 startButton.addEventListener("click", () => {
-  requestStartRun();
+  startRun();
 });
 
 restartButton.addEventListener("click", () => {
-  startRun();
+  requestRestart();
 });
 
 function createRng(seed) {
@@ -239,14 +239,23 @@ function createRng(seed) {
   };
 }
 
-let rng = createRng(state.randomSeed);
+function createVisualSeed(seed) {
+  return (seed ^ 0x9e3779b9) >>> 0;
+}
 
-function randomRange(min, max) {
-  return min + (max - min) * rng();
+let simulationRng = createRng(state.randomSeed);
+let visualRng = createRng(createVisualSeed(state.randomSeed));
+
+function randomRangeSimulation(min, max) {
+  return min + (max - min) * simulationRng();
+}
+
+function randomRangeVisual(min, max) {
+  return min + (max - min) * visualRng();
 }
 
 function chooseEnemyType() {
-  const roll = rng();
+  const roll = simulationRng();
   if (roll < 0.42) {
     return { key: "leafling", hp: 26, speed: 3.1, points: 100, pattern: PATTERN_LEAFLING };
   }
@@ -263,16 +272,11 @@ function makeCanvasTexture(width, height, drawFn) {
   const ctx = texCanvas.getContext("2d", { alpha: true });
   drawFn(ctx, width, height);
   const texture = new THREE.CanvasTexture(texCanvas);
-  applyPixelTexturePolicy(texture);
-  return texture;
-}
-
-function applyPixelTexturePolicy(texture) {
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.needsUpdate = true;
+  return texture;
 }
 
 function pixelTextureFromPattern(pattern, palette) {
@@ -305,28 +309,27 @@ function createSprite(pattern, palette, worldSize) {
   const aspect = pattern.length > 0 ? pattern[0].length / pattern.length : 1;
   sprite.scale.set(worldSize * aspect, worldSize, 1);
   sprite.position.set(0, 0.35, 0);
-  sprite.renderOrder = 6;
   return sprite;
 }
 
 function createGroundTexture() {
   return makeCanvasTexture(512, 512, (ctx, width, height) => {
     const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, "#90ddb6");
-    grad.addColorStop(0.6, "#6dc0b7");
-    grad.addColorStop(1, "#5d98cf");
+    grad.addColorStop(0, "#98f8be");
+    grad.addColorStop(0.6, "#68d3b2");
+    grad.addColorStop(1, "#5fa8e7");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
     for (let y = 0; y < height; y += 16) {
       for (let x = 0; x < width; x += 16) {
-        const shade = (x + y) % 32 === 0 ? "rgba(255,255,255,0.09)" : "rgba(11,58,76,0.05)";
+        const shade = (x + y) % 32 === 0 ? "rgba(255,255,255,0.13)" : "rgba(11,58,76,0.08)";
         ctx.fillStyle = shade;
         ctx.fillRect(x, y, 16, 16);
       }
     }
 
-    ctx.strokeStyle = "rgba(11,37,58,0.18)";
+    ctx.strokeStyle = "rgba(9,36,58,0.22)";
     ctx.lineWidth = 4;
     ctx.strokeRect(6, 6, width - 12, height - 12);
   });
@@ -347,7 +350,7 @@ function buildWorld() {
     new THREE.Vector3(-ARENA_HALF_WIDTH, 0.05, ARENA_HALF_HEIGHT),
     new THREE.Vector3(-ARENA_HALF_WIDTH, 0.05, -ARENA_HALF_HEIGHT),
   ]);
-  const rim = new THREE.Line(rimGeometry, new THREE.LineBasicMaterial({ color: 0x295576, transparent: true, opacity: 0.75 }));
+  const rim = new THREE.Line(rimGeometry, new THREE.LineBasicMaterial({ color: 0x173f66 }));
   scene.add(rim);
   world.arenaBounds = rim;
 
@@ -359,7 +362,7 @@ function resizeRenderer() {
   const rect = canvas.parentElement.getBoundingClientRect();
   const width = Math.max(2, Math.floor(rect.width));
   const height = Math.max(2, Math.floor(rect.height));
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER_PIXEL_RATIO_CAP));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setSize(width, height, false);
 
   const aspect = width / height;
@@ -373,11 +376,7 @@ function resizeRenderer() {
 }
 
 function syncSpritePosition(sprite, x, y) {
-  sprite.position.set(alignToPixelGrid(x), 0.38, alignToPixelGrid(y));
-}
-
-function alignToPixelGrid(value) {
-  return Math.round(value / PIXEL_GRID_STEP) * PIXEL_GRID_STEP;
+  sprite.position.set(x, 0.38, y);
 }
 
 function clamp(value, min, max) {
@@ -386,9 +385,9 @@ function clamp(value, min, max) {
 
 function spawnEnemy() {
   const enemyType = chooseEnemyType();
-  const side = Math.floor(rng() * 4);
-  const xEdge = randomRange(-ARENA_HALF_WIDTH + 0.8, ARENA_HALF_WIDTH - 0.8);
-  const yEdge = randomRange(-ARENA_HALF_HEIGHT + 0.8, ARENA_HALF_HEIGHT - 0.8);
+  const side = Math.floor(simulationRng() * 4);
+  const xEdge = randomRangeSimulation(-ARENA_HALF_WIDTH + 0.8, ARENA_HALF_WIDTH - 0.8);
+  const yEdge = randomRangeSimulation(-ARENA_HALF_HEIGHT + 0.8, ARENA_HALF_HEIGHT - 0.8);
 
   let x = xEdge;
   let y = yEdge;
@@ -429,23 +428,22 @@ function spawnParticles(x, y, count, color = 0xfff2a0) {
     const material = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.88,
+      opacity: 1,
       side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(x, 0.08, y);
-    mesh.renderOrder = 2;
+    mesh.position.set(x, 0.06, y);
     world.particleRoot.add(mesh);
 
-    const angle = randomRange(0, Math.PI * 2);
-    const speed = randomRange(2.4, 6.2);
+    const angle = randomRangeVisual(0, Math.PI * 2);
+    const speed = randomRangeVisual(2.4, 6.2);
     state.particles.push({
       x,
       y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: randomRange(0.22, 0.5),
+      life: randomRangeVisual(0.22, 0.5),
       maxLife: 0.5,
       mesh,
     });
@@ -475,40 +473,7 @@ function clearCombatObjects() {
   state.particles = [];
 }
 
-function clearInputBuffers() {
-  keyboardDown.clear();
-  pressedThisStep.clear();
-}
-
-function cancelStartTransition() {
-  if (startTransitionHandle !== null) {
-    clearTimeout(startTransitionHandle);
-    startTransitionHandle = null;
-  }
-}
-
-function requestStartRun() {
-  if (state.mode !== "start" || startTransitionHandle !== null) {
-    return;
-  }
-
-  state.mode = "starting";
-  startScreen.classList.add("is-transitioning");
-  clearInputBuffers();
-
-  if (!document.fullscreenElement) {
-    canvas.requestFullscreen?.().catch(() => {});
-  }
-
-  startTransitionHandle = window.setTimeout(() => {
-    startTransitionHandle = null;
-    startRun();
-  }, START_TRANSITION_SECONDS * 1000);
-}
-
 function startRun() {
-  cancelStartTransition();
-  clearInputBuffers();
   clearCombatObjects();
   state.mode = "playing";
   state.time = 0;
@@ -530,16 +495,17 @@ function startRun() {
   state.gameOverSummary = "";
   state.shakeTime = 0;
   state.shakeStrength = 0;
+  state.restartTimer = 0;
   // Keep run initialization deterministic for repeatable automated testing.
   state.randomSeed = 0x57b1c4;
-  rng = createRng(state.randomSeed);
+  simulationRng = createRng(state.randomSeed);
+  visualRng = createRng(createVisualSeed(state.randomSeed));
 
   for (let i = 0; i < 3; i += 1) {
     spawnEnemy();
   }
 
   startScreen.classList.add("hidden");
-  startScreen.classList.remove("is-transitioning");
   gameoverScreen.classList.add("hidden");
   hud.classList.remove("hidden");
 }
@@ -547,12 +513,21 @@ function startRun() {
 function enterGameOver() {
   state.mode = "gameover";
   state.gameOverSummary = `Time ${state.time.toFixed(1)}s · Score ${Math.floor(state.score)} · Kills ${state.kills}`;
+  state.restartTimer = 0;
   gameoverStats.textContent = state.gameOverSummary;
   gameoverScreen.classList.remove("hidden");
 }
 
+function requestRestart() {
+  if (state.mode !== "gameover") {
+    return;
+  }
+  state.mode = "restart_pending";
+  state.restartTimer = RESTART_TRANSITION_SECONDS;
+}
+
 function maybeToggleFullscreen() {
-  if (!pressedThisStep.has("KeyF")) {
+  if (!consumeEdge("KeyF")) {
     return;
   }
   if (!document.fullscreenElement) {
@@ -563,7 +538,7 @@ function maybeToggleFullscreen() {
 }
 
 function maybeHandlePauseAndRestart() {
-  if (pressedThisStep.has("KeyP")) {
+  if (consumeEdge("KeyP")) {
     if (state.mode === "playing") {
       state.mode = "paused";
     } else if (state.mode === "paused") {
@@ -571,20 +546,13 @@ function maybeHandlePauseAndRestart() {
     }
   }
 
-  if (state.mode === "gameover" && (pressedThisStep.has("KeyR") || pressedThisStep.has("Enter") || pressedThisStep.has("Space"))) {
+  if (state.mode === "gameover" && (consumeEdge("KeyR") || consumeEdge("Enter") || consumeEdge("Space"))) {
+    requestRestart();
+  }
+
+  if (state.mode === "start" && (consumeEdge("Enter") || consumeEdge("Space"))) {
     startRun();
   }
-
-  if (state.mode === "start" && (pressedThisStep.has("Enter") || pressedThisStep.has("Space"))) {
-    requestStartRun();
-  }
-}
-
-function setStartHintVisibility(isVisible) {
-  if (!startControls) {
-    return;
-  }
-  startControls.classList.toggle("hidden", !isVisible);
 }
 
 function applyPlayerInput(dt) {
@@ -603,8 +571,8 @@ function applyPlayerInput(dt) {
     state.player.facingX = xDir / len;
     state.player.facingY = yDir / len;
   } else {
-    state.player.vx *= 0.65;
-    state.player.vy *= 0.65;
+    state.player.vx = 0;
+    state.player.vy = 0;
   }
 
   state.player.x += state.player.vx * dt;
@@ -625,15 +593,14 @@ function doAttack() {
   const slashMaterial = new THREE.MeshBasicMaterial({
     color: 0xff7b3b,
     transparent: true,
-    opacity: 0.3,
-    depthTest: true,
+    opacity: 0.45,
+    depthTest: false,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
   const slashMesh = new THREE.Mesh(slashGeometry, slashMaterial);
   slashMesh.rotation.x = -Math.PI / 2;
-  slashMesh.position.set(state.player.x, 0.14, state.player.y);
-  slashMesh.renderOrder = 2;
+  slashMesh.position.set(state.player.x, 0.44, state.player.y);
   world.slashRoot.add(slashMesh);
 
   state.slashEffects.push({
@@ -645,8 +612,9 @@ function doAttack() {
     mesh: slashMesh,
   });
 
+  const orderedEnemies = state.enemies.slice().sort((a, b) => a.id - b.id);
   let anyHit = false;
-  for (const enemy of state.enemies) {
+  for (const enemy of orderedEnemies) {
     const dx = enemy.x - state.player.x;
     const dy = enemy.y - state.player.y;
     const distance = Math.hypot(dx, dy);
@@ -657,11 +625,11 @@ function doAttack() {
     const nx = distance > 0 ? dx / distance : 0;
     const ny = distance > 0 ? dy / distance : 0;
     const frontDot = nx * state.player.facingX + ny * state.player.facingY;
-    if (frontDot < -0.2) {
+    if (frontDot < PLAYER_ATTACK_FRONT_DOT_THRESHOLD) {
       continue;
     }
 
-    enemy.hp -= 21;
+    enemy.hp -= PLAYER_ATTACK_DAMAGE;
     enemy.flash = 0.1;
     anyHit = true;
   }
@@ -671,7 +639,7 @@ function doAttack() {
   }
 
   const survivors = [];
-  for (const enemy of state.enemies) {
+  for (const enemy of orderedEnemies) {
     if (enemy.hp > 0) {
       survivors.push(enemy);
       continue;
@@ -772,22 +740,37 @@ function updateSpawning(dt) {
     return;
   }
 
+  if (state.enemies.length >= MAX_ACTIVE_ENEMIES) {
+    state.spawnCooldown = clamp(0.16 + randomRangeSimulation(0, 0.06), 0.12, 0.26);
+    return;
+  }
+
   spawnEnemy();
   const intensity = Math.min(1, state.time / 65);
-  state.spawnCooldown = clamp(1.1 - intensity * 0.78 + randomRange(-0.05, 0.05), 0.24, 1.1);
+  state.spawnCooldown = clamp(1.1 - intensity * 0.78 + randomRangeSimulation(-0.05, 0.05), 0.24, 1.1);
 }
 
 function updateHud() {
   const hp = Math.max(0, Math.floor(state.player.hp));
   const score = Math.floor(state.score);
   const chainText = state.chain > 1 && state.chainTimer > 0 ? `x${state.chain}` : "-";
-  const modeText = state.mode === "paused" ? "PAUSED" : "ACTIVE";
+  const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
+
+  let modeText = "ACTIVE";
+  if (state.mode === "paused") {
+    modeText = "PAUSED";
+  } else if (state.mode === "gameover") {
+    modeText = "GAME OVER";
+  } else if (state.mode === "restart_pending") {
+    modeText = `RESTART ${state.restartTimer.toFixed(1)}s`;
+  }
 
   hud.textContent =
     `HP ${hp}/${PLAYER_MAX_HP}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
-    `Enemies ${state.enemies.length}  ${modeText}`;
+    `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
+    `${modeText}`;
 }
 
 function syncVisuals() {
@@ -797,10 +780,10 @@ function syncVisuals() {
     syncSpritePosition(enemy.sprite, enemy.x, enemy.y);
   }
 
-  const shakeX = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
-  const shakeZ = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
-  camera.position.x = alignToPixelGrid(shakeX);
-  camera.position.z = alignToPixelGrid(shakeZ);
+  const shakeX = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
+  const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
+  camera.position.x = shakeX;
+  camera.position.z = shakeZ;
 
   renderer.render(scene, camera);
 }
@@ -820,7 +803,7 @@ function updateGameStep(dt) {
 
     applyPlayerInput(dt);
 
-    if (pressedThisStep.has("Space")) {
+    if (consumeEdge("Space")) {
       doAttack();
     }
 
@@ -833,6 +816,13 @@ function updateGameStep(dt) {
       state.player.hp = 0;
       enterGameOver();
     }
+  } else if (state.mode === "restart_pending") {
+    state.restartTimer = Math.max(0, state.restartTimer - dt);
+    gameoverStats.textContent =
+      `${state.gameOverSummary}\n` + `Restarting in ${state.restartTimer.toFixed(1)}s...`;
+    if (state.restartTimer <= 0) {
+      startRun();
+    }
   } else {
     updateSlashEffects(dt);
     updateParticles(dt);
@@ -843,17 +833,14 @@ function updateGameStep(dt) {
     state.shakeStrength = 0;
   }
 
-  if (state.mode === "start" || state.mode === "starting") {
+  if (state.mode === "start") {
     startScreen.classList.remove("hidden");
-    setStartHintVisibility(true);
     gameoverScreen.classList.add("hidden");
     hud.classList.add("hidden");
-  } else if (state.mode === "gameover") {
-    setStartHintVisibility(false);
+  } else if (state.mode === "gameover" || state.mode === "restart_pending") {
     gameoverScreen.classList.remove("hidden");
     hud.classList.remove("hidden");
   } else {
-    setStartHintVisibility(false);
     startScreen.classList.add("hidden");
     gameoverScreen.classList.add("hidden");
     hud.classList.remove("hidden");
@@ -862,6 +849,14 @@ function updateGameStep(dt) {
   updateHud();
   syncVisuals();
   pressedThisStep.clear();
+}
+
+function consumeEdge(code) {
+  if (!pressedThisStep.has(code)) {
+    return false;
+  }
+  pressedThisStep.delete(code);
+  return true;
 }
 
 let accumulator = 0;

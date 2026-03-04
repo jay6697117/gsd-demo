@@ -17,9 +17,6 @@
 
 **Phase Goal:** Let players enter combat quickly from a clear start flow while establishing non-blurry HD pixel rendering and onboarding hints.
 **Goal:** Let players enter combat quickly from a clear start flow while establishing non-blurry HD pixel rendering and onboarding hints.
-**Execution Status:** Complete (2026-03-04)
-**Verification:** Passed (`01-VERIFICATION.md`)
-**Plans:** 2/2 plans complete
 
 **Requirements**: [CORE-01, VIZ-01, VIZ-02, UX-02]
 
@@ -39,6 +36,9 @@
 
 **Phase Goal:** Deliver the full survivable combat loop with deterministic hit logic, enemy pressure, HP/score progression, and death/restart closure.
 **Goal:** Deliver the full survivable combat loop with deterministic hit logic, enemy pressure, HP/score progression, and death/restart closure.
+**Execution Status:** Complete (2026-03-04)
+**Verification:** Passed (`02-VERIFICATION.md`)
+**Plans:** 2/2 plans complete
 
 **Requirements**: [CORE-02, CORE-03, COMB-01, COMB-02, COMB-03, COMB-04, COMB-05, COMB-06, VIZ-04]
 
@@ -144,4 +144,4 @@
 | AUTO-03 | Phase 5 |
 
 ---
-*Roadmap status: Phase 1 complete; Phase 2 ready for execution*
+*Roadmap status: Phase 2 complete; Phase 3 ready for execution*
