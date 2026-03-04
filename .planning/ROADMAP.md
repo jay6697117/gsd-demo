@@ -13,9 +13,12 @@
 | Phase 4 | Harden control/state transitions (pause/focus/fullscreen) | 3 |
 | Phase 5 | Ship deterministic automation and regression harness | 3 |
 
-## Phase 1 — Runtime Skeleton & Pixel Baseline
+## Phase 1: Runtime Skeleton & Pixel Baseline
 
 **Phase Goal:** Let players enter combat quickly from a clear start flow while establishing non-blurry HD pixel rendering and onboarding hints.
+**Goal:** Let players enter combat quickly from a clear start flow while establishing non-blurry HD pixel rendering and onboarding hints.
+
+**Requirements**: [CORE-01, VIZ-01, VIZ-02, UX-02]
 
 **Requirement Mapping (4):**
 - CORE-01
@@ -29,9 +32,12 @@
 - Scene layering clearly separates foreground gameplay entities from background decoration.
 - Pre-combat control hint is visible and readable without opening extra menus.
 
-## Phase 2 — Deterministic Combat Core
+## Phase 2: Deterministic Combat Core
 
 **Phase Goal:** Deliver the full survivable combat loop with deterministic hit logic, enemy pressure, HP/score progression, and death/restart closure.
+**Goal:** Deliver the full survivable combat loop with deterministic hit logic, enemy pressure, HP/score progression, and death/restart closure.
+
+**Requirements**: [CORE-02, CORE-03, COMB-01, COMB-02, COMB-03, COMB-04, COMB-05, COMB-06, VIZ-04]
 
 **Requirement Mapping (9):**
 - CORE-02
@@ -51,9 +57,12 @@
 - HUD updates in real time for HP, score, survival timer, and kills.
 - On HP=0, game-over summary appears and restart returns player to active combat within 3 seconds.
 
-## Phase 3 — Impact Feedback Polish
+## Phase 3: Impact Feedback Polish
 
 **Phase Goal:** Improve perceived combat quality by making successful hits/kills immediately readable.
+**Goal:** Improve perceived combat quality by making successful hits/kills immediately readable.
+
+**Requirements**: [VIZ-03]
 
 **Requirement Mapping (1):**
 - VIZ-03
@@ -62,9 +71,12 @@
 - Every successful hit triggers at least one short feedback channel (flash/shake/particles).
 - Kill events present stronger feedback than non-lethal hits so users can distinguish outcomes instantly.
 
-## Phase 4 — Control & State Hardening
+## Phase 4: Control & State Hardening
 
 **Phase Goal:** Eliminate state corruption around pause/resume, focus changes, and fullscreen transitions.
+**Goal:** Eliminate state corruption around pause/resume, focus changes, and fullscreen transitions.
+
+**Requirements**: [CORE-04, UX-01, UX-03]
 
 **Requirement Mapping (3):**
 - CORE-04
@@ -76,9 +88,12 @@
 - `f` toggles fullscreen and `Esc` exits fullscreen without breaking input responsiveness.
 - After tab focus loss and regain, keyboard controls recover consistently without requiring page reload.
 
-## Phase 5 — Automation & Determinism Harness
+## Phase 5: Automation & Determinism Harness
 
 **Phase Goal:** Make gameplay behavior machine-verifiable with stable simulation stepping and regression artifacts.
+**Goal:** Make gameplay behavior machine-verifiable with stable simulation stepping and regression artifacts.
+
+**Requirements**: [AUTO-01, AUTO-02, AUTO-03]
 
 **Requirement Mapping (3):**
 - AUTO-01
