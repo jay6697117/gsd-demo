@@ -64,7 +64,7 @@ None
 
 ## Project Reference
 
-- Project: `/Users/zhangjinhui/Desktop/gsd-demo-phase3-exec/.planning/PROJECT.md`
-- Roadmap: `/Users/zhangjinhui/Desktop/gsd-demo-phase3-exec/.planning/ROADMAP.md`
-- Requirements: `/Users/zhangjinhui/Desktop/gsd-demo-phase3-exec/.planning/REQUIREMENTS.md`
-- Config: `/Users/zhangjinhui/Desktop/gsd-demo-phase3-exec/.planning/config.json`
+- Project: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md`
+- Roadmap: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/ROADMAP.md`
+- Requirements: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/REQUIREMENTS.md`
+- Config: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/config.json`
