@@ -1,4 +1,11 @@
 import * as THREE from "three";
+import {
+  consumeEdge,
+  resolveFocusLossMode,
+  resolvePauseMode,
+  shouldClearInputForVisibility,
+  sortedKeys,
+} from "./control-rules.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -196,6 +203,30 @@ const state = {
     bannerTimer: 0,
     lastBannerAt: -999,
   },
+  control: {
+    pause: {
+      lastTransition: "init",
+      lastFrom: "start",
+      lastTo: "start",
+      lastReason: "init",
+      lastAt: 0,
+    },
+    focus: {
+      visibility: document.visibilityState || "visible",
+      hasWindowFocus: typeof document.hasFocus === "function" ? document.hasFocus() : true,
+      recoveryPending: false,
+      lastEvent: "init",
+      lastAt: 0,
+    },
+    fullscreen: {
+      isFullscreen: Boolean(document.fullscreenElement),
+      lastIntent: "none",
+      lastSource: "init",
+      lastResult: "idle",
+      lastError: null,
+      lastAt: 0,
+    },
+  },
 };
 
 const keyboardDown = new Set();
@@ -220,7 +251,7 @@ window.addEventListener("keydown", (event) => {
   const code = event.code;
 
   if (code === "Escape" && document.fullscreenElement) {
-    document.exitFullscreen?.().catch(() => {});
+    requestFullscreenTransition("exit", "escape-key");
   }
 
   if (!keyboardDown.has(code)) {
@@ -238,24 +269,26 @@ window.addEventListener("keyup", (event) => {
 });
 
 window.addEventListener("blur", () => {
-  keyboardDown.clear();
-  pressedThisStep.clear();
-  if (state.mode === "playing") {
-    state.mode = "paused";
-  }
+  applyFocusLoss("window-blur");
 });
 
 window.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "visible") {
-    keyboardDown.clear();
-    pressedThisStep.clear();
-    if (state.mode === "playing") {
-      state.mode = "paused";
-    }
+  if (shouldClearInputForVisibility(document.visibilityState)) {
+    applyFocusLoss("visibility-hidden");
+    return;
   }
+  applyFocusGain("visibility-visible");
+});
+
+window.addEventListener("focus", () => {
+  applyFocusGain("window-focus");
 });
 
 window.addEventListener("fullscreenchange", () => {
+  state.control.fullscreen.isFullscreen = Boolean(document.fullscreenElement);
+  state.control.fullscreen.lastResult = "changed";
+  state.control.fullscreen.lastError = null;
+  state.control.fullscreen.lastAt = Number(state.time.toFixed(3));
   resizeRenderer();
 });
 
@@ -266,6 +299,97 @@ startButton.addEventListener("click", () => {
 restartButton.addEventListener("click", () => {
   requestRestart();
 });
+
+function clearInputState() {
+  keyboardDown.clear();
+  pressedThisStep.clear();
+}
+
+function updateFocusSnapshot(eventName) {
+  state.control.focus.visibility = document.visibilityState || "visible";
+  state.control.focus.hasWindowFocus = typeof document.hasFocus === "function" ? document.hasFocus() : true;
+  state.control.focus.lastEvent = eventName;
+  state.control.focus.lastAt = Number(state.time.toFixed(3));
+}
+
+function transitionPauseMode(nextMode, reason) {
+  const previousMode = state.mode;
+  if (previousMode === nextMode) {
+    return false;
+  }
+
+  state.mode = nextMode;
+  state.control.pause.lastTransition = `${previousMode}->${nextMode}`;
+  state.control.pause.lastFrom = previousMode;
+  state.control.pause.lastTo = nextMode;
+  state.control.pause.lastReason = reason;
+  state.control.pause.lastAt = Number(state.time.toFixed(3));
+  return true;
+}
+
+function applyFocusLoss(reason) {
+  clearInputState();
+  const nextMode = resolveFocusLossMode(state.mode);
+  if (nextMode !== state.mode) {
+    transitionPauseMode(nextMode, reason);
+    setCenterBanner("FOCUS LOST · PAUSED", "neutral", 0.72, true);
+  }
+  state.control.focus.recoveryPending = true;
+  updateFocusSnapshot(reason);
+}
+
+function applyFocusGain(reason) {
+  clearInputState();
+  updateFocusSnapshot(reason);
+  if (state.mode === "paused" && state.control.focus.recoveryPending) {
+    setCenterBanner("FOCUS RESTORED · PRESS P", "neutral", 0.84, true);
+  }
+}
+
+function normalizeErrorMessage(error) {
+  if (!error) {
+    return "unknown";
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error && typeof error.message === "string" && error.message.length > 0) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function requestFullscreenTransition(intent, source) {
+  const now = Number(state.time.toFixed(3));
+  state.control.fullscreen.lastIntent = intent;
+  state.control.fullscreen.lastSource = source;
+  state.control.fullscreen.lastAt = now;
+  state.control.fullscreen.lastError = null;
+
+  if (intent === "exit" && !document.fullscreenElement) {
+    state.control.fullscreen.lastResult = "noop";
+    state.control.fullscreen.isFullscreen = false;
+    return;
+  }
+
+  const action =
+    intent === "enter" ? canvas.requestFullscreen?.bind(canvas) : document.exitFullscreen?.bind(document);
+  if (!action) {
+    state.control.fullscreen.lastResult = "unsupported";
+    return;
+  }
+
+  state.control.fullscreen.lastResult = "pending";
+  action()
+    .then(() => {
+      state.control.fullscreen.lastResult = "fulfilled";
+      state.control.fullscreen.lastError = null;
+    })
+    .catch((error) => {
+      state.control.fullscreen.lastResult = "rejected";
+      state.control.fullscreen.lastError = normalizeErrorMessage(error);
+    });
+}
 
 function createRng(seed) {
   let value = seed >>> 0;
@@ -644,6 +768,7 @@ function clearCombatObjects() {
 
 function startRun() {
   clearCombatObjects();
+  clearInputState();
   state.mode = "playing";
   state.time = 0;
   state.score = 0;
@@ -666,6 +791,19 @@ function startRun() {
   state.shakeStrength = 0;
   state.restartTimer = 0;
   resetFeedbackState();
+  state.control.focus.recoveryPending = false;
+  updateFocusSnapshot("start-run");
+  state.control.fullscreen.isFullscreen = Boolean(document.fullscreenElement);
+  state.control.fullscreen.lastIntent = "none";
+  state.control.fullscreen.lastSource = "start-run";
+  state.control.fullscreen.lastResult = "idle";
+  state.control.fullscreen.lastError = null;
+  state.control.fullscreen.lastAt = Number(state.time.toFixed(3));
+  state.control.pause.lastTransition = "start->playing";
+  state.control.pause.lastFrom = "start";
+  state.control.pause.lastTo = "playing";
+  state.control.pause.lastReason = "start-run";
+  state.control.pause.lastAt = Number(state.time.toFixed(3));
   // Keep run initialization deterministic for repeatable automated testing.
   state.randomSeed = 0x57b1c4;
   simulationRng = createRng(state.randomSeed);
@@ -693,35 +831,42 @@ function requestRestart() {
   if (state.mode !== "gameover") {
     return;
   }
+  clearInputState();
   state.mode = "restart_pending";
   state.restartTimer = RESTART_TRANSITION_SECONDS;
 }
 
 function maybeToggleFullscreen() {
-  if (!consumeEdge("KeyF")) {
+  if (!consumeEdge(pressedThisStep, "KeyF")) {
     return;
   }
   if (!document.fullscreenElement) {
-    canvas.requestFullscreen?.().catch(() => {});
+    requestFullscreenTransition("enter", "toggle-key");
   } else {
-    document.exitFullscreen?.().catch(() => {});
+    requestFullscreenTransition("exit", "toggle-key");
   }
 }
 
 function maybeHandlePauseAndRestart() {
-  if (consumeEdge("KeyP")) {
-    if (state.mode === "playing") {
-      state.mode = "paused";
-    } else if (state.mode === "paused") {
-      state.mode = "playing";
+  if (consumeEdge(pressedThisStep, "KeyP")) {
+    const nextMode = resolvePauseMode(state.mode);
+    if (nextMode !== state.mode) {
+      transitionPauseMode(nextMode, "key-p");
+      state.control.focus.recoveryPending = false;
+      clearInputState();
     }
   }
 
-  if (state.mode === "gameover" && (consumeEdge("KeyR") || consumeEdge("Enter") || consumeEdge("Space"))) {
+  if (
+    state.mode === "gameover" &&
+    (consumeEdge(pressedThisStep, "KeyR") ||
+      consumeEdge(pressedThisStep, "Enter") ||
+      consumeEdge(pressedThisStep, "Space"))
+  ) {
     requestRestart();
   }
 
-  if (state.mode === "start" && (consumeEdge("Enter") || consumeEdge("Space"))) {
+  if (state.mode === "start" && (consumeEdge(pressedThisStep, "Enter") || consumeEdge(pressedThisStep, "Space"))) {
     startRun();
   }
 }
@@ -947,12 +1092,18 @@ function updateHud() {
     modeText = `RESTART ${state.restartTimer.toFixed(1)}s`;
   }
 
+  let focusText = state.control.focus.hasWindowFocus ? "FOCUS OK" : "FOCUS LOST";
+  if (state.mode === "paused" && state.control.focus.recoveryPending) {
+    focusText = "FOCUS RECOVERED · PRESS P";
+  }
+
   hud.textContent =
     `HP ${hp}/${PLAYER_MAX_HP}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
-    `${modeText}  Cue ${bannerText}`;
+    `${modeText}  ${focusText}\n` +
+    `Cue ${bannerText}`;
 }
 
 function updateFeedbackOverlay() {
@@ -1006,7 +1157,7 @@ function updateGameStep(dt) {
 
     applyPlayerInput(dt);
 
-    if (consumeEdge("Space")) {
+    if (consumeEdge(pressedThisStep, "Space")) {
       doAttack();
     }
 
@@ -1057,14 +1208,6 @@ function updateGameStep(dt) {
   pressedThisStep.clear();
 }
 
-function consumeEdge(code) {
-  if (!pressedThisStep.has(code)) {
-    return false;
-  }
-  pressedThisStep.delete(code);
-  return true;
-}
-
 let accumulator = 0;
 let lastTimestamp = performance.now();
 let manualSteppingMode = false;
@@ -1104,6 +1247,36 @@ function renderGameToText() {
     kills: state.kills,
     chain: state.chain,
     nextSpawnIn: Number(state.spawnCooldown.toFixed(3)),
+    inputState: {
+      pressedKeys: sortedKeys(keyboardDown),
+      edgeKeys: sortedKeys(pressedThisStep),
+      pressedCount: keyboardDown.size,
+      edgeCount: pressedThisStep.size,
+    },
+    pauseState: {
+      mode: state.mode,
+      lastTransition: state.control.pause.lastTransition,
+      lastFrom: state.control.pause.lastFrom,
+      lastTo: state.control.pause.lastTo,
+      lastReason: state.control.pause.lastReason,
+      lastAt: Number(state.control.pause.lastAt.toFixed(3)),
+      recoveryPending: state.control.focus.recoveryPending,
+    },
+    fullscreenState: {
+      isFullscreen: state.control.fullscreen.isFullscreen,
+      lastIntent: state.control.fullscreen.lastIntent,
+      lastSource: state.control.fullscreen.lastSource,
+      lastResult: state.control.fullscreen.lastResult,
+      lastError: state.control.fullscreen.lastError,
+      lastAt: Number(state.control.fullscreen.lastAt.toFixed(3)),
+    },
+    focusState: {
+      visibility: state.control.focus.visibility,
+      hasWindowFocus: state.control.focus.hasWindowFocus,
+      recoveryPending: state.control.focus.recoveryPending,
+      lastEvent: state.control.focus.lastEvent,
+      lastAt: Number(state.control.focus.lastAt.toFixed(3)),
+    },
     player: {
       x: Number(state.player.x.toFixed(3)),
       y: Number(state.player.y.toFixed(3)),
