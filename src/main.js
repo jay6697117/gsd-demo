@@ -7,6 +7,7 @@ const PLAYER_BASE_SPEED = 9.2;
 const PLAYER_ATTACK_COOLDOWN = 0.32;
 const PLAYER_ATTACK_RADIUS = 2.9;
 const PLAYER_MAX_HP = 100;
+const START_TRANSITION_SECONDS = 0.96;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -159,6 +160,7 @@ const state = {
 
 const keyboardDown = new Set();
 const pressedThisStep = new Set();
+let startTransitionHandle = null;
 
 const world = {
   playerSprite: null,
@@ -219,7 +221,7 @@ window.addEventListener("fullscreenchange", () => {
 });
 
 startButton.addEventListener("click", () => {
-  startRun();
+  requestStartRun();
 });
 
 restartButton.addEventListener("click", () => {
@@ -459,7 +461,40 @@ function clearCombatObjects() {
   state.particles = [];
 }
 
+function clearInputBuffers() {
+  keyboardDown.clear();
+  pressedThisStep.clear();
+}
+
+function cancelStartTransition() {
+  if (startTransitionHandle !== null) {
+    clearTimeout(startTransitionHandle);
+    startTransitionHandle = null;
+  }
+}
+
+function requestStartRun() {
+  if (state.mode !== "start" || startTransitionHandle !== null) {
+    return;
+  }
+
+  state.mode = "starting";
+  startScreen.classList.add("is-transitioning");
+  clearInputBuffers();
+
+  if (!document.fullscreenElement) {
+    canvas.requestFullscreen?.().catch(() => {});
+  }
+
+  startTransitionHandle = window.setTimeout(() => {
+    startTransitionHandle = null;
+    startRun();
+  }, START_TRANSITION_SECONDS * 1000);
+}
+
 function startRun() {
+  cancelStartTransition();
+  clearInputBuffers();
   clearCombatObjects();
   state.mode = "playing";
   state.time = 0;
@@ -490,6 +525,7 @@ function startRun() {
   }
 
   startScreen.classList.add("hidden");
+  startScreen.classList.remove("is-transitioning");
   gameoverScreen.classList.add("hidden");
   hud.classList.remove("hidden");
 }
@@ -526,7 +562,7 @@ function maybeHandlePauseAndRestart() {
   }
 
   if (state.mode === "start" && (pressedThisStep.has("Enter") || pressedThisStep.has("Space"))) {
-    startRun();
+    requestStartRun();
   }
 }
 
@@ -785,7 +821,7 @@ function updateGameStep(dt) {
     state.shakeStrength = 0;
   }
 
-  if (state.mode === "start") {
+  if (state.mode === "start" || state.mode === "starting") {
     startScreen.classList.remove("hidden");
     gameoverScreen.classList.add("hidden");
     hud.classList.add("hidden");
