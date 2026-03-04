@@ -8,6 +8,8 @@ const PLAYER_ATTACK_COOLDOWN = 0.32;
 const PLAYER_ATTACK_RADIUS = 2.9;
 const PLAYER_MAX_HP = 100;
 const START_TRANSITION_SECONDS = 0.96;
+const RENDER_PIXEL_RATIO_CAP = 1.5;
+const PIXEL_GRID_STEP = 1 / 16;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -261,11 +263,16 @@ function makeCanvasTexture(width, height, drawFn) {
   const ctx = texCanvas.getContext("2d", { alpha: true });
   drawFn(ctx, width, height);
   const texture = new THREE.CanvasTexture(texCanvas);
+  applyPixelTexturePolicy(texture);
+  return texture;
+}
+
+function applyPixelTexturePolicy(texture) {
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
   texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+  texture.needsUpdate = true;
 }
 
 function pixelTextureFromPattern(pattern, palette) {
@@ -351,7 +358,7 @@ function resizeRenderer() {
   const rect = canvas.parentElement.getBoundingClientRect();
   const width = Math.max(2, Math.floor(rect.width));
   const height = Math.max(2, Math.floor(rect.height));
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER_PIXEL_RATIO_CAP));
   renderer.setSize(width, height, false);
 
   const aspect = width / height;
@@ -365,7 +372,11 @@ function resizeRenderer() {
 }
 
 function syncSpritePosition(sprite, x, y) {
-  sprite.position.set(x, 0.38, y);
+  sprite.position.set(alignToPixelGrid(x), 0.38, alignToPixelGrid(y));
+}
+
+function alignToPixelGrid(value) {
+  return Math.round(value / PIXEL_GRID_STEP) * PIXEL_GRID_STEP;
 }
 
 function clamp(value, min, max) {
@@ -785,8 +796,8 @@ function syncVisuals() {
 
   const shakeX = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
   const shakeZ = state.shakeTime > 0 ? randomRange(-state.shakeStrength, state.shakeStrength) : 0;
-  camera.position.x = shakeX;
-  camera.position.z = shakeZ;
+  camera.position.x = alignToPixelGrid(shakeX);
+  camera.position.z = alignToPixelGrid(shakeZ);
 
   renderer.render(scene, camera);
 }
