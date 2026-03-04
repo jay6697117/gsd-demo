@@ -10,7 +10,7 @@
 - [x] **CORE-01**: User can start a run from a start screen and enter combat within 2 interactions.
 - [x] **CORE-02**: User can lose the run when HP reaches 0 and see a game-over summary.
 - [x] **CORE-03**: User can restart from game-over and return to combat within 3 seconds.
-- [ ] **CORE-04**: User can pause and resume gameplay without corrupting movement/attack state.
+- [x] **CORE-04**: User can pause and resume gameplay without corrupting movement/attack state.
 
 ### Combat
 
@@ -30,9 +30,9 @@
 
 ### Controls & UX
 
-- [ ] **UX-01**: User can toggle fullscreen with `f` and exit fullscreen with `Esc`.
+- [x] **UX-01**: User can toggle fullscreen with `f` and exit fullscreen with `Esc`.
 - [x] **UX-02**: User can view minimal control hints before gameplay starts.
-- [ ] **UX-03**: User can continue reliable keyboard control after focus change and resume.
+- [x] **UX-03**: User can continue reliable keyboard control after focus change and resume.
 
 ### Testability & Determinism
 
@@ -69,7 +69,7 @@
 | CORE-01 | Phase 1 | Complete |
 | CORE-02 | Phase 2 | Complete |
 | CORE-03 | Phase 2 | Complete |
-| CORE-04 | Phase 4 | Pending |
+| CORE-04 | Phase 4 | Complete |
 | COMB-01 | Phase 2 | Complete |
 | COMB-02 | Phase 2 | Complete |
 | COMB-03 | Phase 2 | Complete |
@@ -80,9 +80,9 @@
 | VIZ-02 | Phase 1 | Complete |
 | VIZ-03 | Phase 3 | Complete |
 | VIZ-04 | Phase 2 | Complete |
-| UX-01 | Phase 4 | Pending |
+| UX-01 | Phase 4 | Complete |
 | UX-02 | Phase 1 | Complete |
-| UX-03 | Phase 4 | Pending |
+| UX-03 | Phase 4 | Complete |
 | AUTO-01 | Phase 5 | Pending |
 | AUTO-02 | Phase 5 | Pending |
 | AUTO-03 | Phase 5 | Pending |
@@ -94,4 +94,4 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-04 after initial definition*
+*Last updated: 2026-03-04 after Phase 4 execution*

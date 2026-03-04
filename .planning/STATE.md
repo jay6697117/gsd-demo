@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: control & state hardening
+current_phase: 05
+current_phase_name: automation & determinism harness
 current_plan: Not started
 status: planning
-stopped_at: Completed Phase 03 verification and closure
-last_updated: "2026-03-04T15:08:34Z"
+stopped_at: Completed Phase 04 verification and closure
+last_updated: "2026-03-04T15:36:40Z"
 last_activity: 2026-03-04
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 60
+  completed_phases: 4
+  total_plans: 6
+  completed_plans: 6
+  percent: 80
 ---
 
 # STATE: PokeThrees Hunter
@@ -23,15 +23,15 @@ progress:
 
 ## Current Position
 
-- **Current Phase:** 04
-- **Current Phase Name:** control & state hardening
+- **Current Phase:** 05
+- **Current Phase Name:** automation & determinism harness
 - **Total Phases:** 5
 - **Current Plan:** Not started
 - **Total Plans in Phase:** 0 (phase not planned yet)
 - **Status:** Ready to plan
 - **Last Activity:** 2026-03-04
-- **Last Activity Description:** Phase 03 complete, transitioned to Phase 04
-- **Progress:** [██████░░░░] 60%
+- **Last Activity Description:** Phase 04 complete, transitioned to Phase 05
+- **Progress:** [████████░░] 80%
 
 ## Performance Metrics
 
@@ -40,6 +40,7 @@ progress:
 | Phase 02 P01 | 6 min | 2 tasks | 1 file |
 | Phase 02 P02 | 11 min | 2 tasks | 3 files |
 | Phase 03 P01 | 14 min | 2 tasks | 2 files |
+| Phase 04 P01 | 8 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -51,6 +52,8 @@ progress:
 - [Phase 03]: Separated hit/kill/milestone feedback into explicit trigger channels with same-frame activation.
 - [Phase 03]: Enforced particle hard caps with kill-priority reservation and reclaim to prevent saturation.
 - [Phase 03]: Added banner rate limiting and danger-overlay suppression during kill-priority windows.
+- [Phase 04]: Extracted control transition logic into pure helpers in `src/control-rules.js` for deterministic pause/focus/fullscreen behavior.
+- [Phase 04]: Adopted fullscreen failure diagnostics (`lastResult`, `lastError`, counters) instead of mutating gameplay mode.
 
 ### Blockers
 
@@ -58,8 +61,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-04T15:08:34Z
-- **Stopped At:** Completed Phase 03 verification and closure
+- **Last session:** 2026-03-04T15:36:40Z
+- **Stopped At:** Completed Phase 04 verification and closure
 - **Resume File:** None
 
 ## Project Reference
