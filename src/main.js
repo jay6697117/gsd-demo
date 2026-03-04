@@ -9,6 +9,7 @@ const PLAYER_ATTACK_RADIUS = 2.9;
 const PLAYER_ATTACK_DAMAGE = 21;
 const PLAYER_ATTACK_FRONT_DOT_THRESHOLD = -0.2;
 const PLAYER_MAX_HP = 100;
+const MAX_ACTIVE_ENEMIES = 26;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -724,6 +725,11 @@ function updateParticles(dt) {
 function updateSpawning(dt) {
   state.spawnCooldown -= dt;
   if (state.spawnCooldown > 0) {
+    return;
+  }
+
+  if (state.enemies.length >= MAX_ACTIVE_ENEMIES) {
+    state.spawnCooldown = clamp(0.16 + randomRangeSimulation(0, 0.06), 0.12, 0.26);
     return;
   }
 
