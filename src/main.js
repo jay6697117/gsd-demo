@@ -10,6 +10,7 @@ const PLAYER_ATTACK_DAMAGE = 21;
 const PLAYER_ATTACK_FRONT_DOT_THRESHOLD = -0.2;
 const PLAYER_MAX_HP = 100;
 const MAX_ACTIVE_ENEMIES = 26;
+const RESTART_TRANSITION_SECONDS = 0.8;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -158,6 +159,7 @@ const state = {
   shakeTime: 0,
   shakeStrength: 0,
   gameOverSummary: "",
+  restartTimer: 0,
 };
 
 const keyboardDown = new Set();
@@ -226,7 +228,7 @@ startButton.addEventListener("click", () => {
 });
 
 restartButton.addEventListener("click", () => {
-  startRun();
+  requestRestart();
 });
 
 function createRng(seed) {
@@ -493,6 +495,7 @@ function startRun() {
   state.gameOverSummary = "";
   state.shakeTime = 0;
   state.shakeStrength = 0;
+  state.restartTimer = 0;
   // Keep run initialization deterministic for repeatable automated testing.
   state.randomSeed = 0x57b1c4;
   simulationRng = createRng(state.randomSeed);
@@ -510,8 +513,17 @@ function startRun() {
 function enterGameOver() {
   state.mode = "gameover";
   state.gameOverSummary = `Time ${state.time.toFixed(1)}s · Score ${Math.floor(state.score)} · Kills ${state.kills}`;
+  state.restartTimer = 0;
   gameoverStats.textContent = state.gameOverSummary;
   gameoverScreen.classList.remove("hidden");
+}
+
+function requestRestart() {
+  if (state.mode !== "gameover") {
+    return;
+  }
+  state.mode = "restart_pending";
+  state.restartTimer = RESTART_TRANSITION_SECONDS;
 }
 
 function maybeToggleFullscreen() {
@@ -535,7 +547,7 @@ function maybeHandlePauseAndRestart() {
   }
 
   if (state.mode === "gameover" && (consumeEdge("KeyR") || consumeEdge("Enter") || consumeEdge("Space"))) {
-    startRun();
+    requestRestart();
   }
 
   if (state.mode === "start" && (consumeEdge("Enter") || consumeEdge("Space"))) {
@@ -742,13 +754,23 @@ function updateHud() {
   const hp = Math.max(0, Math.floor(state.player.hp));
   const score = Math.floor(state.score);
   const chainText = state.chain > 1 && state.chainTimer > 0 ? `x${state.chain}` : "-";
-  const modeText = state.mode === "paused" ? "PAUSED" : "ACTIVE";
+  const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
+
+  let modeText = "ACTIVE";
+  if (state.mode === "paused") {
+    modeText = "PAUSED";
+  } else if (state.mode === "gameover") {
+    modeText = "GAME OVER";
+  } else if (state.mode === "restart_pending") {
+    modeText = `RESTART ${state.restartTimer.toFixed(1)}s`;
+  }
 
   hud.textContent =
     `HP ${hp}/${PLAYER_MAX_HP}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
-    `Enemies ${state.enemies.length}  ${modeText}`;
+    `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
+    `${modeText}`;
 }
 
 function syncVisuals() {
@@ -794,6 +816,13 @@ function updateGameStep(dt) {
       state.player.hp = 0;
       enterGameOver();
     }
+  } else if (state.mode === "restart_pending") {
+    state.restartTimer = Math.max(0, state.restartTimer - dt);
+    gameoverStats.textContent =
+      `${state.gameOverSummary}\n` + `Restarting in ${state.restartTimer.toFixed(1)}s...`;
+    if (state.restartTimer <= 0) {
+      startRun();
+    }
   } else {
     updateSlashEffects(dt);
     updateParticles(dt);
@@ -808,7 +837,7 @@ function updateGameStep(dt) {
     startScreen.classList.remove("hidden");
     gameoverScreen.classList.add("hidden");
     hud.classList.add("hidden");
-  } else if (state.mode === "gameover") {
+  } else if (state.mode === "gameover" || state.mode === "restart_pending") {
     gameoverScreen.classList.remove("hidden");
     hud.classList.remove("hidden");
   } else {

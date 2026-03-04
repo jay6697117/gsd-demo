@@ -117,6 +117,23 @@ body {
   font-size: clamp(15px, 1.9vw, 24px);
 }
 
+#gameover-stats {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px dashed rgba(255, 255, 255, 0.38);
+  background: rgba(4, 14, 24, 0.45);
+  font-size: clamp(16px, 2vw, 24px);
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
+.restart-hint {
+  margin: 0;
+  color: #ffd28f;
+  font-size: clamp(14px, 1.7vw, 20px);
+  letter-spacing: 0.04em;
+}
+
 button {
   cursor: pointer;
   border: 2px solid rgba(255, 255, 255, 0.8);
