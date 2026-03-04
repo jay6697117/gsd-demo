@@ -5,6 +5,7 @@ import {
   buildDeterministicSnapshot,
   computeAdvanceSteps,
   DETERMINISM_SCHEMA_VERSION,
+  MAX_ADVANCE_STEPS,
 } from "../src/determinism-harness.js";
 
 function buildMockState() {
@@ -85,6 +86,7 @@ test("computeAdvanceSteps keeps fixed-step conversion deterministic", () => {
   assert.equal(computeAdvanceSteps(-15, fixedStep), 1);
   assert.equal(computeAdvanceSteps(1000, 1 / 30), 30);
   assert.equal(computeAdvanceSteps(1000, 0), 60);
+  assert.equal(computeAdvanceSteps(60 * 60 * 1000, fixedStep), MAX_ADVANCE_STEPS);
 });
 
 test("snapshot includes stable schema/version and required sections", () => {

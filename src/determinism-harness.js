@@ -1,4 +1,5 @@
 export const DETERMINISM_SCHEMA_VERSION = "1.0.0";
+export const MAX_ADVANCE_STEPS = 60 * 120;
 
 const MIN_FIXED_STEP_SECONDS = 1 / 240;
 const DEFAULT_FIXED_STEP_SECONDS = 1 / 60;
@@ -29,7 +30,8 @@ export function computeAdvanceSteps(ms, fixedStepSeconds = DEFAULT_FIXED_STEP_SE
   const clampedMs = Math.max(0, toFinite(ms, 0));
   const stepSeconds = normalizeFixedStep(fixedStepSeconds);
   const stepMs = stepSeconds * 1000;
-  return Math.max(1, Math.round(clampedMs / stepMs));
+  const requested = Math.max(1, Math.round(clampedMs / stepMs));
+  return Math.min(MAX_ADVANCE_STEPS, requested);
 }
 
 export function buildDeterministicSnapshot({
