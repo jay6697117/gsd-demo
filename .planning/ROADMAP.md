@@ -11,7 +11,7 @@
 | Phase 2 | Deliver deterministic combat core and core HUD loop | 9 |
 | Phase 3 | Add high-signal hit/kill feedback polish | 1 |
 | Phase 4 | Harden control/state transitions (pause/focus/fullscreen) | 3 |
-| Phase 5 | Ship deterministic automation and regression harness | 3 |
+| Complete    | 2026-03-04 | 3 |
 
 ## Phase 1: Runtime Skeleton & Pixel Baseline
 
@@ -64,6 +64,9 @@
 
 **Phase Goal:** Improve perceived combat quality by making successful hits/kills immediately readable.
 **Goal:** Improve perceived combat quality by making successful hits/kills immediately readable.
+**Execution Status:** Complete (2026-03-04)
+**Verification:** Passed (`03-VERIFICATION.md`)
+**Plans:** 1/1 plans complete
 
 **Requirements**: [VIZ-03]
 
@@ -144,4 +147,4 @@
 | AUTO-03 | Phase 5 |
 
 ---
-*Roadmap status: Phase 2 complete; Phase 3 ready for execution*
+*Roadmap status: Phase 3 complete; Phase 4 ready for execution*
