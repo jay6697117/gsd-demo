@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PokeThrees Hunter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="canvas-stage" aria-label="Game stage">
+        <canvas id="game-canvas" width="1280" height="720"></canvas>
+
+        <div id="hud" class="hud hidden" aria-live="polite"></div>
+
+        <div id="start-screen" class="overlay">
+          <h1>PokeThrees Hunter</h1>
+          <p class="subtitle">HD Pixel Art Arena Slayer</p>
+          <p class="controls">
+            Move: Arrow Keys or WASD · Attack: Space · Pause: P · Fullscreen: F · Restart: R
+          </p>
+          <button id="start-btn">Start Hunt</button>
+        </div>
+
+        <div id="gameover-screen" class="overlay hidden">
+          <h2>Run Over</h2>
+          <p id="gameover-stats"></p>
+          <button id="restart-btn">Run Again</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
