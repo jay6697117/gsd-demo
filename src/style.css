@@ -52,7 +52,9 @@ body {
   height: 100%;
   display: block;
   image-rendering: pixelated;
-  background: #84d5ff;
+  image-rendering: crisp-edges;
+  filter: contrast(1.04) saturate(0.94);
+  background: #7fb8d7;
 }
 
 .hud {
