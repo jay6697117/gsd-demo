@@ -39,6 +39,7 @@ const restartButton = document.getElementById("restart-btn");
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("game-canvas");
 const canvasStage = canvas.parentElement;
+const forceNoWebgl = Boolean(globalThis.__GSD_DISABLE_WEBGL__);
 
 const feedbackOverlay = document.createElement("div");
 feedbackOverlay.className = "feedback-overlay";
@@ -56,13 +57,61 @@ feedbackBanner.className = "feedback-center-banner";
 feedbackOverlay.append(feedbackDangerLayer, feedbackFlashLayer, feedbackBanner);
 canvasStage.append(feedbackOverlay);
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: false,
-  powerPreference: "high-performance",
-});
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setClearColor(0x81d8ff, 1);
+function createRendererRuntime(targetCanvas, disableWebgl) {
+  if (disableWebgl) {
+    return {
+      renderer: {
+        outputColorSpace: THREE.SRGBColorSpace,
+        setClearColor: () => {},
+        setPixelRatio: () => {},
+        setSize: () => {},
+        render: () => {},
+      },
+      meta: {
+        renderBackend: "noop",
+        webglAvailable: false,
+        renderError: "disabled-by-test-flag",
+      },
+    };
+  }
+
+  try {
+    const webglRenderer = new THREE.WebGLRenderer({
+      canvas: targetCanvas,
+      antialias: false,
+      powerPreference: "high-performance",
+    });
+    webglRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    webglRenderer.setClearColor(0x81d8ff, 1);
+    return {
+      renderer: webglRenderer,
+      meta: {
+        renderBackend: "webgl",
+        webglAvailable: true,
+        renderError: null,
+      },
+    };
+  } catch (error) {
+    console.warn("Renderer fallback activated:", error);
+    return {
+      renderer: {
+        outputColorSpace: THREE.SRGBColorSpace,
+        setClearColor: () => {},
+        setPixelRatio: () => {},
+        setSize: () => {},
+        render: () => {},
+      },
+      meta: {
+        renderBackend: "noop-fallback",
+        webglAvailable: false,
+        renderError: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
+const rendererRuntime = createRendererRuntime(canvas, forceNoWebgl);
+const renderer = rendererRuntime.renderer;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x8bd6ff, 26, 52);
@@ -210,6 +259,9 @@ const state = {
     lastAdvanceMs: 0,
     lastAdvanceSteps: 0,
     totalAdvanceSteps: 0,
+    renderBackend: rendererRuntime.meta.renderBackend,
+    webglAvailable: rendererRuntime.meta.webglAvailable,
+    renderError: rendererRuntime.meta.renderError,
   },
   control: {
     pause: {

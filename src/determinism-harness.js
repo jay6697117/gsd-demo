@@ -68,6 +68,9 @@ export function buildDeterministicSnapshot({
       lastAdvanceMs: toRounded(meta.lastAdvanceMs, 3),
       lastAdvanceSteps: Math.floor(toFinite(meta.lastAdvanceSteps, 0)),
       totalAdvanceSteps: Math.floor(toFinite(meta.totalAdvanceSteps, 0)),
+      renderBackend: meta.renderBackend || "unknown",
+      webglAvailable: Boolean(meta.webglAvailable),
+      renderError: meta.renderError ?? null,
     },
     coordinateSystem: {
       origin: "arena center",

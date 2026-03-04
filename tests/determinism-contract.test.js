@@ -73,6 +73,9 @@ function buildMockState() {
       lastAdvanceMs: 1000,
       lastAdvanceSteps: 60,
       totalAdvanceSteps: 120,
+      renderBackend: "webgl",
+      webglAvailable: true,
+      renderError: null,
     },
   };
 }
@@ -104,6 +107,8 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(typeof snapshot.determinism.fixedStepSeconds, "number");
   assert.equal(typeof snapshot.determinism.lastAdvanceSteps, "number");
   assert.equal(snapshot.determinism.totalAdvanceSteps, 120);
+  assert.equal(snapshot.determinism.renderBackend, "webgl");
+  assert.equal(snapshot.determinism.webglAvailable, true);
   assert.equal(typeof snapshot.mode, "string");
   assert.equal(typeof snapshot.time, "number");
   assert.equal(typeof snapshot.player.hp, "number");
