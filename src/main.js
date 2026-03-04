@@ -8,6 +8,7 @@ import {
   shouldClearInputForVisibility,
   sortedKeys,
 } from "./control-rules.js";
+import { buildDeterministicSnapshot, computeAdvanceSteps } from "./determinism-harness.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -204,6 +205,11 @@ const state = {
     bannerKind: "neutral",
     bannerTimer: 0,
     lastBannerAt: -999,
+  },
+  determinism: {
+    lastAdvanceMs: 0,
+    lastAdvanceSteps: 0,
+    totalAdvanceSteps: 0,
   },
   control: {
     pause: {
@@ -798,6 +804,9 @@ function startRun() {
   state.shakeStrength = 0;
   state.restartTimer = 0;
   resetFeedbackState();
+  state.determinism.lastAdvanceMs = 0;
+  state.determinism.lastAdvanceSteps = 0;
+  state.determinism.totalAdvanceSteps = 0;
   state.control.focus.recoveryPending = false;
   updateFocusSnapshot("start-run");
   state.control.fullscreen.isFullscreen = Boolean(document.fullscreenElement);
@@ -1241,94 +1250,32 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 function renderGameToText() {
-  const payload = {
-    coordinateSystem: {
-      origin: "arena center",
-      x: "positive right",
-      y: "positive downward on screen (mapped to world +z)",
-    },
-    mode: state.mode,
-    seed: state.randomSeed,
-    time: Number(state.time.toFixed(3)),
-    score: Math.floor(state.score),
-    kills: state.kills,
-    chain: state.chain,
-    nextSpawnIn: Number(state.spawnCooldown.toFixed(3)),
-    inputState: {
-      pressedKeys: sortedKeys(keyboardDown),
-      edgeKeys: sortedKeys(pressedThisStep),
-      pressedCount: keyboardDown.size,
-      edgeCount: pressedThisStep.size,
-    },
-    pauseState: {
-      mode: state.mode,
-      lastTransition: state.control.pause.lastTransition,
-      lastFrom: state.control.pause.lastFrom,
-      lastTo: state.control.pause.lastTo,
-      lastReason: state.control.pause.lastReason,
-      lastAt: Number(state.control.pause.lastAt.toFixed(3)),
-      recoveryPending: state.control.focus.recoveryPending,
-    },
-    fullscreenState: {
-      isFullscreen: state.control.fullscreen.isFullscreen,
-      lastIntent: state.control.fullscreen.lastIntent,
-      lastSource: state.control.fullscreen.lastSource,
-      lastResult: state.control.fullscreen.lastResult,
-      lastError: state.control.fullscreen.lastError,
-      lastAt: Number(state.control.fullscreen.lastAt.toFixed(3)),
-      attemptCount: state.control.fullscreen.attemptCount,
-      failureCount: state.control.fullscreen.failureCount,
-    },
-    focusState: {
-      visibility: state.control.focus.visibility,
-      hasWindowFocus: state.control.focus.hasWindowFocus,
-      recoveryPending: state.control.focus.recoveryPending,
-      lastEvent: state.control.focus.lastEvent,
-      lastAt: Number(state.control.focus.lastAt.toFixed(3)),
-    },
-    player: {
-      x: Number(state.player.x.toFixed(3)),
-      y: Number(state.player.y.toFixed(3)),
-      vx: Number(state.player.vx.toFixed(3)),
-      vy: Number(state.player.vy.toFixed(3)),
-      hp: Number(state.player.hp.toFixed(2)),
-      attackCooldown: Number(state.player.attackCooldown.toFixed(3)),
-      invulnerable: Number(state.player.invulnerable.toFixed(3)),
-      facingX: Number(state.player.facingX.toFixed(3)),
-      facingY: Number(state.player.facingY.toFixed(3)),
-    },
-    enemies: state.enemies.map((enemy) => ({
-      id: enemy.id,
-      kind: enemy.kind,
-      x: Number(enemy.x.toFixed(3)),
-      y: Number(enemy.y.toFixed(3)),
-      hp: Number(enemy.hp.toFixed(2)),
-      maxHp: enemy.maxHp,
-    })),
-    activeSlashEffects: state.slashEffects.length,
-    activeParticles: state.particles.length,
-    feedback: {
-      hitFlash: Number(state.feedback.hitFlash.toFixed(3)),
-      killFlash: Number(state.feedback.killFlash.toFixed(3)),
-      dangerOverlay: Number(state.feedback.dangerOverlay.toFixed(3)),
-      killPriorityTimer: Number(state.feedback.killPriorityTimer.toFixed(3)),
-      bannerText: state.feedback.bannerText,
-      bannerKind: state.feedback.bannerKind,
-      bannerTimer: Number(state.feedback.bannerTimer.toFixed(3)),
+  return JSON.stringify(
+    buildDeterministicSnapshot({
+      state,
+      keyboardDown,
+      pressedThisStep,
+      sortedKeysFn: sortedKeys,
+      fixedStepSeconds: FIXED_STEP,
       particleCap: FEEDBACK_PARTICLE_HARD_CAP,
-    },
-  };
-
-  return JSON.stringify(payload);
+      manualSteppingMode,
+      determinismMeta: state.determinism,
+    }),
+  );
 }
 
 window.render_game_to_text = renderGameToText;
 
 window.advanceTime = (ms) => {
   manualSteppingMode = true;
-  const clamped = Math.max(0, Number(ms) || 0);
-  const steps = Math.max(1, Math.round(clamped / (FIXED_STEP * 1000)));
+  accumulator = 0;
+  lastTimestamp = performance.now();
+  const steps = computeAdvanceSteps(ms, FIXED_STEP);
+  state.determinism.lastAdvanceMs = Math.max(0, Number(ms) || 0);
+  state.determinism.lastAdvanceSteps = steps;
+  state.determinism.totalAdvanceSteps += steps;
   for (let i = 0; i < steps; i += 1) {
     updateGameStep(FIXED_STEP);
   }
+  return renderGameToText();
 };
