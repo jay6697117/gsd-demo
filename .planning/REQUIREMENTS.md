@@ -8,7 +8,7 @@
 
 ### World & Map
 
-- [ ] **MAP-01**: User can enter and traverse at least 3 connected map sectors in one run.
+- [x] **MAP-01**: User can enter and traverse at least 3 connected map sectors in one run.
 - [ ] **MAP-02**: User movement and enemy pursuit remain collision-stable at sector boundaries.
 - [ ] **MAP-03**: Enemy spawn distribution follows sector rules and is deterministic for the same seed and timeline.
 - [ ] **MAP-04**: User can recognize safe lanes/choke zones visually during active combat.
@@ -79,7 +79,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MAP-01 | Phase 06 | Pending |
+| MAP-01 | Phase 06 | Complete |
 | MAP-02 | Phase 06 | Pending |
 | MAP-03 | Phase 06 | Pending |
 | MAP-04 | Phase 06 | Pending |
