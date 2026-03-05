@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "1.0.0",
+  "determinism": {
+    "fixedStepSeconds": 0.016667,
+    "fixedStepMs": 16.667,
+    "manualSteppingMode": true,
+    "lastAdvanceMs": 900,
+    "lastAdvanceSteps": 54,
+    "totalAdvanceSteps": 54,
+    "renderBackend": "noop",
+    "webglAvailable": false,
+    "renderError": "disabled-by-test-flag"
+  },
+  "coordinateSystem": {
+    "origin": "arena center",
+    "x": "positive right",
+    "y": "positive downward on screen (mapped to world +z)"
+  },
+  "mode": "playing",
+  "seed": 5747140,
+  "time": 1.217,
+  "score": 0,
+  "kills": 0,
+  "chain": 0,
+  "nextSpawnIn": 0.615,
+  "inputState": {
+    "pressedKeys": [],
+    "edgeKeys": [],
+    "pressedCount": 0,
+    "edgeCount": 0
+  },
+  "pauseState": {
+    "mode": "playing",
+    "lastTransition": "paused->playing",
+    "lastFrom": "paused",
+    "lastTo": "playing",
+    "lastReason": "key-p",
+    "lastAt": 0.317,
+    "recoveryPending": false
+  },
+  "fullscreenState": {
+    "isFullscreen": false,
+    "lastIntent": "none",
+    "lastSource": "start-run",
+    "lastResult": "idle",
+    "lastError": null,
+    "lastAt": 0,
+    "attemptCount": 0,
+    "failureCount": 0
+  },
+  "focusState": {
+    "visibility": "visible",
+    "hasWindowFocus": true,
+    "recoveryPending": false,
+    "lastEvent": "start-run",
+    "lastAt": 0
+  },
+  "player": {
+    "x": 0,
+    "y": -1.073,
+    "vx": 0,
+    "vy": 0,
+    "hp": 100,
+    "attackCooldown": 0,
+    "invulnerable": 0,
+    "facingX": 0,
+    "facingY": -1
+  },
+  "enemies": [
+    {
+      "id": 1,
+      "kind": "embercub",
+      "x": -12.82,
+      "y": 9.04,
+      "hp": 34,
+      "maxHp": 34
+    },
+    {
+      "id": 2,
+      "kind": "leafling",
+      "x": 0.373,
+      "y": 7.284,
+      "hp": 26,
+      "maxHp": 26
+    },
+    {
+      "id": 3,
+      "kind": "embercub",
+      "x": 3.427,
+      "y": -8.135,
+      "hp": 34,
+      "maxHp": 34
+    },
+    {
+      "id": 4,
+      "kind": "sparkowl",
+      "x": -3.377,
+      "y": -9.354,
+      "hp": 22,
+      "maxHp": 22
+    }
+  ],
+  "activeSlashEffects": 0,
+  "activeParticles": 0,
+  "feedback": {
+    "hitFlash": 0,
+    "killFlash": 0,
+    "dangerOverlay": 0,
+    "killPriorityTimer": 0,
+    "bannerText": "",
+    "bannerKind": "neutral",
+    "bannerTimer": 0,
+    "particleCap": 120
+  }
+}
