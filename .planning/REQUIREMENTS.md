@@ -36,9 +36,9 @@
 
 ### Testability & Determinism
 
-- [ ] **AUTO-01**: User (or automation) can call `window.render_game_to_text()` to get current gameplay-relevant JSON state.
-- [ ] **AUTO-02**: User (or automation) can call `window.advanceTime(ms)` to deterministically step simulation time.
-- [ ] **AUTO-03**: Automated Playwright action bursts can progress gameplay and produce screenshots/state artifacts without runtime errors.
+- [x] **AUTO-01**: User (or automation) can call `window.render_game_to_text()` to get current gameplay-relevant JSON state.
+- [x] **AUTO-02**: User (or automation) can call `window.advanceTime(ms)` to deterministically step simulation time.
+- [x] **AUTO-03**: Automated Playwright action bursts can progress gameplay and produce screenshots/state artifacts without runtime errors.
 
 ## v2 Requirements
 
@@ -83,9 +83,9 @@
 | UX-01 | Phase 4 | Complete |
 | UX-02 | Phase 1 | Complete |
 | UX-03 | Phase 4 | Complete |
-| AUTO-01 | Phase 5 | Pending |
-| AUTO-02 | Phase 5 | Pending |
-| AUTO-03 | Phase 5 | Pending |
+| AUTO-01 | Phase 5 | Complete |
+| AUTO-02 | Phase 5 | Complete |
+| AUTO-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 20 total
@@ -94,4 +94,4 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-04 after Phase 4 execution*
+*Last updated: 2026-03-05 after Phase 5 execution*

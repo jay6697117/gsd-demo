@@ -11,6 +11,7 @@
 | Phase 2 | Deliver deterministic combat core and core HUD loop | 9 |
 | Phase 3 | Add high-signal hit/kill feedback polish | 1 |
 | Phase 4 | Harden control/state transitions (pause/focus/fullscreen) | 3 |
+| Phase 5 | Make gameplay behavior machine-verifiable with stable simulation stepping and regression artifacts | 3 |
 
 ## Phase 1: Runtime Skeleton & Pixel Baseline
 
@@ -103,6 +104,9 @@
 
 **Phase Goal:** Make gameplay behavior machine-verifiable with stable simulation stepping and regression artifacts.
 **Goal:** Make gameplay behavior machine-verifiable with stable simulation stepping and regression artifacts.
+**Execution Status:** Complete (2026-03-05)
+**Verification:** Passed (`05-VERIFICATION.md`)
+**Plans:** 2/2 plans complete
 
 **Requirements**: [AUTO-01, AUTO-02, AUTO-03]
 
@@ -152,4 +156,4 @@
 | AUTO-03 | Phase 5 |
 
 ---
-*Roadmap status: Phase 4 complete; Phase 5 ready for planning*
+*Roadmap status: Phase 5 complete (milestone v1 complete)*
