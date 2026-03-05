@@ -2,6 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  resolveBoundaryMovement,
+  resolveEnemyBoundaryMovement,
+  resolvePlayerBoundaryMovement,
+  resolveSectorForBoundaryPosition,
+} from "../src/world-collision.js";
+import {
   advanceWorldTraversalState,
   buildWorldTraversalSummary,
   canTraverseBetween,
@@ -69,4 +75,83 @@ test("scripted route visits at least three connected sectors in one run", () => 
     const to = transitionPath[i];
     assert.equal(canTraverseBetween(from, to), true);
   }
+});
+
+test("boundary resolver allows lane pass-through between hub and north", () => {
+  const resolved = resolvePlayerBoundaryMovement({
+    position: { x: 0, y: -5.5 },
+    velocity: { x: 0, y: -4 },
+    dt: 0.2,
+    currentSectorId: "hub",
+  });
+
+  assert.equal(resolved.sectorId, "north");
+  assert.equal(resolved.transitioned, true);
+  assert.equal(resolved.resolution, "lane");
+  assert.ok(resolved.y < -6);
+});
+
+test("boundary resolver rebounds when movement hits non-lane edge", () => {
+  const resolved = resolveBoundaryMovement({
+    position: { x: 5.1, y: -5.5 },
+    velocity: { x: 0, y: -4.4 },
+    dt: 0.2,
+    currentSectorId: "hub",
+  });
+
+  assert.equal(resolved.sectorId, "hub");
+  assert.equal(resolved.transitioned, false);
+  assert.equal(resolved.resolution, "rebound");
+  assert.ok(resolved.y > -6);
+  assert.equal(resolved.x, 5.1);
+});
+
+test("boundary resolver applies deterministic slide near blocked corner", () => {
+  const resolved = resolveBoundaryMovement({
+    position: { x: 6.8, y: -5.8 },
+    velocity: { x: 3, y: -3 },
+    dt: 0.2,
+    currentSectorId: "hub",
+  });
+
+  assert.equal(resolved.sectorId, "hub");
+  assert.equal(resolved.transitioned, false);
+  assert.equal(resolved.resolution, "slide-x");
+  assert.ok(resolved.x > 6.8);
+  assert.equal(resolved.y, -5.8);
+});
+
+test("boundary resolver remains stable for near-boundary micro-steps", () => {
+  let position = { x: 5.2, y: -5.97 };
+  let currentSectorId = "hub";
+
+  for (let i = 0; i < 120; i += 1) {
+    const resolved = resolveBoundaryMovement({
+      position,
+      velocity: { x: 0, y: -1.4 },
+      dt: 1 / 60,
+      currentSectorId,
+    });
+
+    position = { x: resolved.x, y: resolved.y };
+    currentSectorId = resolved.sectorId;
+
+    assert.equal(currentSectorId, "hub");
+    assert.ok(position.y >= -6);
+  }
+});
+
+test("boundary resolver falls back to deterministic clamp when outside sector map", () => {
+  const resolved = resolveEnemyBoundaryMovement({
+    position: { x: 25, y: 14 },
+    velocity: { x: 3, y: 1.5 },
+    dt: 1,
+    fallbackBounds: { minX: -20, maxX: 20, minY: -11, maxY: 11 },
+  });
+
+  assert.equal(resolved.resolution, "fallback-clamp");
+  assert.equal(resolved.blocked, true);
+  assert.equal(resolved.x, 19.9999);
+  assert.equal(resolved.y, 10.9999);
+  assert.equal(resolveSectorForBoundaryPosition({ x: resolved.x, y: resolved.y }), null);
 });
