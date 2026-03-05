@@ -1,262 +1,266 @@
 # Pitfalls Research
 
-**Domain:** Three.js 浏览器动作击杀游戏（HD pixel art）
-**Researched:** 2026-03-04
+**Domain:** Deterministic action-survivor progression loop for `v1.1 World & Growth Overhaul`
+**Researched:** 2026-03-05
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: HD pixel art 被渲染管线“悄悄模糊”
+### Pitfall 1: XP grant logic is split across multiple combat paths
 
 **What goes wrong:**
-像素角色和场景在静态截图看似清晰，但在移动、缩放、全屏切换或高 DPI 设备上出现边缘抖动、发糊、颜色串线，最终丢失“高清像素感”。
+Enemy kills from direct attacks, DOT ticks, prop explosions, or delayed death handlers grant XP inconsistently (double grant or missing grant), causing non-reproducible level pacing between runs.
 
 **Why it happens:**
-开发者只在贴图层设置了 `NearestFilter`，却忽略了 renderer、camera、pixel ratio、后处理链与 CSS 缩放之间的联动；不同浏览器和设备 DPR 下表现不一致。
+Teams wire progression quickly by adding `xp += ...` in several places inside a monolithic loop, without a single kill-event contract or idempotency guard.
 
 **How to avoid:**
-建立统一的像素渲染基线：锁定整数缩放策略、明确 `setPixelRatio` 策略、禁用不兼容的平滑后处理、为关键 sprite/material 做启动时断言；把“像素清晰度快照”纳入回归测试。
+Introduce one canonical kill event (`entityId`, `killerId`, `cause`, `tickId`), route all XP grants through one reducer, and reject duplicate `(entityId, tickId)` grants. Add contract tests that replay the same kill sequence and assert identical XP/level timeline.
 
 **Warning signs:**
-同一场景在 100% 与全屏模式观感明显不一致；角色移动时轮廓闪烁；UI 字体比角色更清晰或更模糊（说明管线不统一）。
+`xpEvents != killEvents` for the same replay; same enemy death occasionally increases XP twice; deterministic replay diverges exactly after mixed kill sources.
 
 **Phase to address:**
-Phase 1 - Rendering Baseline & Art Pipeline
+Phase 1 - Event Contract & Progression State Schema
 
 ---
 
-### Pitfall 2: 帧率驱动逻辑导致战斗手感漂移
+### Pitfall 2: Level-up choice is applied re-entrantly inside the simulation step
 
 **What goes wrong:**
-高帧率设备上角色移动/攻击变快，低帧率设备上命中判定延迟甚至“吞输入”；玩家感知为“这游戏不跟手”。
+A level-up popup interrupts combat mid-tick, then talent effects are applied before the frame completes, producing order-dependent outcomes (extra hit, skipped cooldown, or timing drift).
 
 **Why it happens:**
-把移动、攻击冷却、击退、无敌帧直接绑定每帧步进，而非统一 `deltaTime`/固定步长；暂停与恢复后时间累积处理不一致。
+UI and simulation logic are coupled; progression mutation is executed immediately when XP threshold is crossed instead of at a deterministic frame boundary.
 
 **How to avoid:**
-采用“固定模拟步长 + 渲染插值”或“受控 deltaTime 上限裁剪”；把攻击窗口、受击硬直、无敌帧抽象为时间状态机；为 `advanceTime(ms)` 建立确定性测试样例。
+Queue `pendingLevelUps` during simulation and resolve them only at a fixed boundary (`step end -> freeze -> choose -> apply -> next step`). Keep a strict state machine (`playing`, `levelup_choice`, `paused`) and assert legal transitions.
 
 **Warning signs:**
-同一输入序列在 30 FPS 与 144 FPS 下得分差异明显；暂停恢复后敌人瞬移或连续受击；自动化回放偶发失败。
+Rare bugs only on the exact frame of leveling; same input script yields different HP/cooldown states when frame time changes; pause/focus transitions around level-up produce sticky input.
 
 **Phase to address:**
-Phase 2 - Core Combat Loop Determinism
+Phase 2 - Deterministic Runtime Integration
 
 ---
 
-### Pitfall 3: 视觉命中与逻辑命中不一致
+### Pitfall 3: One global RNG stream couples spawn, drops, and upgrade offers
 
 **What goes wrong:**
-玩家看到“刀砍到了”却未命中，或看起来没碰到却掉血，破坏击杀爽感与公平性。
+A cosmetic or UI change consumes random numbers and unexpectedly changes spawn layout, drop outcomes, or upgrade options, breaking deterministic replay and balancing.
 
 **Why it happens:**
-2D 像素表现与 3D 空间碰撞体未对齐；动画帧、朝向、攻击扇区与碰撞更新顺序不一致；hitbox 随美术迭代漂移但未同步。
+Progression systems are added on top of an existing loop that already relies on a shared RNG consumption order.
 
 **How to avoid:**
-建立“可视化碰撞调试层”（开发环境开关）；把攻击判定拆分为 wind-up/active/recovery 三段并可观测；定义 hitbox 数据驱动配置并纳入审查。
+Use domain-separated seeded streams (`spawnRng`, `dropRng`, `upgradeRng`), serialize their states in deterministic snapshots, and ban `Math.random()` in gameplay paths through lint/check hooks.
 
 **Warning signs:**
-玩家反馈“判定玄学”；同类型敌人偶发穿模；录像复盘中命中结果不可解释。
+Unrelated UI tweaks change drop fairness; replay mismatch appears after adding new VFX; same seed differs after code refactor with no gameplay intent.
 
 **Phase to address:**
-Phase 2 - Core Combat Loop Determinism
+Phase 2 - Deterministic Runtime Integration
 
 ---
 
-### Pitfall 4: 敌人刷新与难度曲线失控
+### Pitfall 4: Upgrade pool lacks eligibility and exclusivity rules
 
 **What goes wrong:**
-前 20 秒无压力、后 10 秒难度雪崩，或者反过来长期无挑战，导致留存差。
+Level-up offers include duplicates, maxed-out upgrades, or incompatible skill/talent combinations, leading to dead choices and player distrust.
 
 **Why it happens:**
-把刷怪频率、敌人速度、攻击欲望等参数线性叠加，缺少上限与分段；未定义“目标战斗时长”和关键指标（DPS、受击率、击杀/分钟）。
+Upgrade entries are treated as a flat weighted list without prerequisite checks, uniqueness constraints, or anti-synergy tags.
 
 **How to avoid:**
-先定义可玩区间（例如 60-120 秒可存活）；采用分段难度与导演器（director）策略；使用可回放脚本对典型玩家输入做 Monte Carlo 风险扫描。
+Define upgrade metadata (`requires`, `excludes`, `maxRank`, `tags`), filter by runtime eligibility before sampling, enforce unique options per pick, and add fallback behavior when the eligible pool is small.
 
 **Warning signs:**
-测试者评价两极分化（“太无聊”或“突然必死”）；击杀数方差过大；版本迭代后平衡频繁回滚。
+Choice panels show “no effect” outcomes; telemetry indicates high cancel/hesitation at level-up; bug reports mention repeated useless cards.
 
 **Phase to address:**
-Phase 3 - Enemy System & Difficulty Tuning
+Phase 3 - Skill/Talent Choice Engine
 
 ---
 
-### Pitfall 5: 自动化可观测性缺失，回归无法闭环
+### Pitfall 5: Power scaling is unconstrained and collapses map challenge
 
 **What goes wrong:**
-功能“看起来能玩”，但每次改动都担心破坏手感或状态流转；CI 无法稳定复现问题。
+Certain level/talent/equipment combinations create runaway DPS or survivability, trivializing expanded map sectors and making building tactics irrelevant.
 
 **Why it happens:**
-未把 `window.render_game_to_text` 与 `window.advanceTime(ms)` 当作一等接口；状态输出不稳定（包含随机数、时间戳、浮点抖动）。
+Multipliers stack without category caps, while difficulty scaling depends mostly on elapsed time instead of player power budget.
 
 **How to avoid:**
-定义稳定的文本状态 schema（state, hp, score, enemyCount, cooldowns）；把随机源可注入化；为关键场景建立 golden text snapshots 与容差规则。
+Split scaling into capped channels (base, additive, multiplicative), define TTK and incoming-DPS guardrails by level band, and run scripted balance sweeps across representative builds.
 
 **Warning signs:**
-自动化脚本依赖 `wait(1000)` 这类脆弱时序；相同提交在不同机器测试结果不一致；问题只能“肉眼复现”。
+Median elite TTK drops sharply after one talent tier; survival variance explodes across seeds; top builds ignore most world interactions because raw stats dominate.
 
 **Phase to address:**
-Phase 5 - Testability & Regression Harness
+Phase 4 - World Balance & Director Calibration
 
 ---
 
-### Pitfall 6: Three.js 资源生命周期管理失效导致性能退化
+### Pitfall 6: Breakable-prop drop economy distorts progression pacing
 
 **What goes wrong:**
-运行几分钟后 FPS 持续下滑、内存上涨、输入延迟增加，长局体验崩溃。
+Optimal play becomes crate-farming instead of combat; unlucky streaks stall progression while lucky streaks skip intended level/talent progression.
 
 **Why it happens:**
-频繁创建/销毁 geometry、material、texture、audio 节点却未 `dispose`；对象池缺失；每帧分配临时对象触发 GC 抖动。
+Drop tables are tuned in isolation from XP curve and map traversal cost, with no pity floor or zone-level spawn budget.
 
 **How to avoid:**
-为敌人与特效建立对象池；统一资源注册表和销毁协议；把 draw calls、GPU memory、JS heap 纳入开发 HUD 与性能门禁。
+Model expected progression gain per minute from both kills and props, cap prop-derived power share by phase target, add pity protection for key slots, and enforce per-zone breakable density limits.
 
 **Warning signs:**
-同局时长越久越卡；Chrome Performance 里 GC spike 频繁；场景重开后内存不回落。
+Run success correlates more with prop breaks than kill performance; players path to prop clusters and ignore enemy risk; progression variance across equal-skill runs becomes extreme.
 
 **Phase to address:**
-Phase 6 - Performance Hardening
+Phase 4 - World Balance & Director Calibration
 
 ---
 
-### Pitfall 7: 键盘输入、焦点与全屏状态机互相打架
+### Pitfall 7: Deterministic harness does not track progression-critical state
 
 **What goes wrong:**
-按键偶发失效、暂停后角色继续移动、重开后按键粘滞，尤其在切出窗口与全屏切换后高发。
+Regression tests pass core combat while progression silently regresses (wrong level timing, invalid offers, inconsistent equipment drops).
 
 **Why it happens:**
-输入层直接读 DOM 事件，没有统一输入缓冲与状态重置；`blur/focus/visibilitychange/fullscreenchange` 处理不完整。
+Snapshot schemas focus on combat fields only and omit `xp`, `level`, `offeredUpgrades`, `equippedItems`, and per-domain RNG states.
 
 **How to avoid:**
-设计单一 Input Manager：区分“瞬时动作键”和“持续状态键”；在页面失焦、暂停、结束态统一清空按键状态；对全屏切换做集成测试。
+Extend `render_game_to_text` schema with progression fields, add contract tests around level thresholds and offer generation, and include zero-duration edge tests for `advanceTime(0)` semantics.
 
 **Warning signs:**
-QA 报告“偶尔按了没反应”；切屏回来后角色自动移动；同一按键在不同浏览器行为不同。
+Progression bugs are found only by manual play; CI flakes cluster around level-up moments; replay output lacks enough fields to explain divergence.
 
 **Phase to address:**
-Phase 4 - Input/State Integration
+Phase 5 - Regression Harness & Observability
 
 ---
 
-### Pitfall 8: 宝可梦风格边界处理不当引发版权风险
+### Pitfall 8: Run reset/resume leaks progression state between sessions
 
 **What goes wrong:**
-视觉语言与知名 IP 过于接近，导致发布受阻、素材重做、品牌风险。
+Restarted runs inherit levels, talents, equipment modifiers, or drop pity counters from previous runs, causing hidden bias and hard-to-reproduce reports.
 
 **Why it happens:**
-团队把“风格参考”误当“可直接复刻”；早期缺少风格差异化清单与审查门槛。
+Mutable state is reused in-place across `start -> gameover -> restart` transitions, especially in monolithic runtime code with implicit contracts.
 
 **How to avoid:**
-建立“可识别但不相同”的原创美术规范：轮廓、配色、比例、动作语义均做差异化；发布前做素材法律审查清单。
+Create a `newRunState(seed)` factory, deep-reset progression subtrees on restart, version state schema explicitly, and verify lifecycle transitions with deterministic integration tests.
 
 **Warning signs:**
-外部评审第一反应是“这就是某官方角色”；美术评审意见集中在“太像”；迭代中频繁改名改图。
+New run starts above level 1; first drop odds differ after restart without seed change; reload/focus flow changes starting buffs.
 
 **Phase to address:**
-Phase 1 - Art Direction Guardrails
+Phase 6 - Lifecycle Hardening & Release Gate
 
 ---
 
 ## Technical Debt Patterns
 
-短期看似省事、长期会反噬的常见捷径。
+Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| 把战斗参数硬编码在多个脚本中 | 调参快 | 平衡无法追踪，改一处漏三处 | 仅限首日原型，24 小时内必须收敛到配置表 |
-| 自动化只做 happy path | 很快“有测试” | 回归误报/漏报，关键缺陷上线 | Never |
-| 每个特效临时 new 对象 | 开发顺手 | GC 抖动 + 长局掉帧 | 仅限一次性过场，不可用于战斗循环 |
-| 输入逻辑分散在多个组件 | 局部实现快 | 焦点/暂停/重开问题指数增长 | Never |
+| Award XP directly inside multiple damage handlers | Fast to ship first playable build | Hidden double-count/miss paths, hard replay debugging | Only in prototype branch before Phase 1 contract lock |
+| Keep one shared RNG for all systems | Minimal plumbing | Any feature change shifts gameplay outcomes globally | Never in deterministic milestone |
+| Encode talents as ad-hoc inline conditionals | No schema migration work | Balance changes require risky code edits and duplicate logic | Temporary spike only, must be replaced in Phase 3 |
+| Tune drops by feel without telemetry | Quick iteration in local play | Biased pacing and unstable fairness across seeds | Only for first balancing pass, then telemetry required |
+| Skip progression fields in snapshots to keep output short | Faster initial harness setup | CI cannot catch growth regressions | Never once progression is milestone scope |
 
 ## Integration Gotchas
 
-常见“接上了但不稳定”的集成错误。
+Common mistakes when connecting to external services.
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Playwright 回放 + 游戏主循环 | 依赖固定 sleep 等待动画结束 | 暴露 `advanceTime(ms)` 并以状态断言驱动测试 |
-| Browser Fullscreen API | 只处理进入全屏，不处理退出与失败分支 | 统一监听 `fullscreenchange`，失败时回退 UI 状态 |
-| Vite HMR + 游戏单例 | 热更新后重复绑定事件/重复主循环 | 在模块热替换钩子里显式 `dispose` 旧实例 |
-| Web Audio API | 首次交互前提前播放导致静音异常 | 首次用户手势后再解锁 audio context |
+| Combat kill pipeline + progression reducer | XP updates happen both in combat and UI callbacks | Route all grants through one event reducer with idempotency key checks |
+| Breakable props + drop resolver | Drop roll uses spawn RNG stream and shifts enemy behavior | Use dedicated `dropRng` stream and snapshot its state |
+| Level-up UI + input/focus/fullscreen events | Choice modal pauses render but not input state | Freeze simulation and clear transient input on mode switch |
+| Determinism harness (`advanceTime`, `render_game_to_text`) + new progression fields | Harness output omits level-up and equipment state | Version snapshot schema and fail tests on missing progression keys |
+| Playwright burst tests + level-up interactions | Tests rely on fixed sleeps and miss race conditions | Drive assertions from deterministic state transitions, not wall-clock waits |
 
 ## Performance Traps
 
-小规模可运行、大规模（长局/高敌人数）就崩的模式。
+Patterns that work at small scale but fail as usage grows.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| 每敌人独立材质与贴图实例 | Draw call 激增，FPS 急降 | 材质复用 + 图集（texture atlas） | 敌人数 > 80 或 draw calls > 500 |
-| 每帧全量碰撞检测（O(n^2)） | 敌人一多即卡顿 | 网格分区/空间哈希做宽相检测 | 敌人数 > 120 |
-| 每帧构造大量临时 Vector 对象 | 间歇性卡顿、输入迟滞 | 复用数学对象，热点路径零分配 | 运行 3-5 分钟后明显 |
-| UI 文本每帧重排重绘 | HUD 抖动、CPU 占用高 | 仅在状态变化时更新 HUD | 分数与计时高频刷新场景 |
+| Rebuilding upgrade eligibility graph every frame | Frame spikes when many talents unlocked | Cache eligibility and invalidate only on level-up/equip changes | ~25+ unlocked upgrades with 60 FPS target |
+| Spawning drop meshes/materials per prop break with no pooling | Long-run GC spikes and frame jitter | Pool pickup visuals and reuse materials/textures by rarity tier | High break frequency in dense map sectors |
+| Recomputing full enemy path costs after each prop destruction | AI stutter when props are chain-broken | Use incremental nav updates and capped recompute budget per tick | Multi-prop combat hotspots |
+| Serializing full game state every tick for debug | CPU overhead and input latency under load | Snapshot only on checkpoints (level-up, N ticks, test hooks) | Extended soak tests or CI replays |
 
 ## Security Mistakes
 
-该领域相对常见、但常被忽略的安全问题。
+Domain-specific security issues beyond general web security.
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| 生产环境暴露调试接口（含无鉴权作弊入口） | 被脚本篡改分数与状态，排行榜污染 | 构建时按环境开关调试 API，生产只读或移除 |
-| 信任本地存档分数用于展示/排行 | 分数伪造，破坏竞争公平 | 客户端分数仅作展示，排行榜校验放服务端 |
-| 动态加载未校验的远程资源 URL | 注入恶意资源或追踪脚本 | 资源白名单 + CSP + 子资源完整性校验 |
+| Leaving progression mutation/debug APIs writable in production | Players can inject XP, reroll offers, or force drops | Gate debug surfaces by build flag and expose read-only diagnostics in prod |
+| Trusting client-computed progression for competitive records | Tampered runs pollute rankings and balance analytics | Recompute or verify key progression events server-side before acceptance |
+| Loading drop/upgrade tables from unvalidated user-controlled storage | Malicious configs create impossible builds or crashes | Validate schema + signature/version checks before applying runtime data |
 
 ## UX Pitfalls
 
-动作击杀游戏里最容易被忽略的体验问题。
+Common user experience mistakes in this domain.
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| 命中反馈弱（音效/屏幕震动/闪白不足） | 击杀不爽、战斗“空” | 为命中和击杀建立分层反馈强度 |
-| 敌人攻击无前摇可读性 | 玩家感到不公平 | 给高伤技能增加清晰 telegraph |
-| HUD 与场景对比不足 | 读不清生命与冷却 | 使用固定对比度与像素字体栅格规则 |
-| 新手缺少 10 秒内可理解的操作提示 | 初始流失高 | 开场提供极简可关闭提示（移动/攻击/暂停） |
+| Level-up modal appears in lethal moments without safe window | Feels unfair and breaks combat flow | Trigger choice at deterministic safe boundary with short invulnerability/freeze policy |
+| Upgrade cards hide real numeric effect and stack behavior | Players cannot build intentionally | Show concise delta preview (`+X%`, caps, exclusions) directly in choice UI |
+| Equipment drop rarity is visually unclear in combat clutter | Missed rewards and frustration | Strong rarity color language + pickup cues + minimap/indicator option |
+| Building/prop interactions are not explained early | Players ignore map tactics and assume randomness | Provide first-run micro tutorial for breakables, drops, and tactical buildings |
 
 ## "Looks Done But Isn't" Checklist
 
-看起来“能玩了”，但经常漏掉的关键验证项。
+Things that appear complete but are missing critical pieces.
 
-- [ ] **主循环状态机：** 常漏暂停/重开后的状态清理 — 验证 start -> battle -> pause -> gameover -> restart 全链路
-- [ ] **HD pixel art：** 常漏高 DPI 与全屏一致性 — 验证窗口缩放、全屏切换、不同 DPR 下像素清晰度
-- [ ] **击杀逻辑：** 常漏无敌帧与连击边界 — 验证连续受击、边缘碰撞、同帧多目标命中
-- [ ] **输入系统：** 常漏失焦恢复行为 — 验证 alt-tab、浏览器失焦、重新聚焦后按键状态
-- [ ] **自动化接口：** 常漏稳定 schema — 验证 `render_game_to_text` 字段稳定且可用于快照比较
-- [ ] **性能基线：** 常漏长局稳定性 — 验证 10 分钟压力局 FPS、内存、GC 曲线
+- [ ] **XP contract:** Often missing duplicate-kill protection — verify one XP grant per unique kill event in replay.
+- [ ] **Level-up pipeline:** Often missing boundary semantics — verify no re-entrant mutation inside a simulation tick.
+- [ ] **Upgrade choice validity:** Often missing eligibility/exclusion enforcement — verify every offered option changes state meaningfully.
+- [ ] **Drop fairness:** Often missing pacing guardrails — verify kill-driven baseline progression still works with poor drop RNG.
+- [ ] **Deterministic coverage:** Often missing progression fields — verify snapshots include level, XP, offers, equipped items, and RNG streams.
+- [ ] **Run lifecycle reset:** Often missing deep reset of progression subtree — verify restart/new run parity across same seed.
 
 ## Recovery Strategies
 
-即使预防失败，也要能快速止损。
+When pitfalls occur despite prevention, how to recover.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| 渲染模糊或抖动上线后暴露 | MEDIUM | 冻结美术增量 -> 回滚到最后稳定渲染配置 -> 增加 DPR/全屏回归用例 -> 分阶段恢复特效 |
-| 战斗判定“玄学” | HIGH | 启用判定可视化 -> 录制失败回放 -> 对齐 hitbox 与动画时间窗 -> 增补 deterministic 用例 |
-| 长局性能崩溃 | HIGH | 先降载（刷怪上限/特效频率）止血 -> 排查未释放资源 -> 引入对象池 -> 建立性能门禁 |
-| 自动化不稳定导致 CI 红灯 | MEDIUM | 去除脆弱 sleep -> 改为状态驱动断言 -> 固定随机种子 -> 维护 golden snapshots |
-| 焦点/全屏输入错乱 | LOW | 集中化输入状态 -> 统一 reset hooks -> 新增跨浏览器集成回归 |
+| XP double-grant/miss-grant incidents | HIGH | Freeze progression tuning changes, instrument kill-to-XP ledger, replay failing seeds, patch reducer idempotency, backfill regression tests. |
+| Re-entrant level-up ordering bug | MEDIUM | Isolate level-up state machine, move application to frame boundary, add transition assertions, rerun deterministic seed pack. |
+| RNG cross-contamination | HIGH | Split RNG streams, migrate snapshot schema, regenerate golden replays, diff pre/post outcomes with fixed seeds. |
+| Invalid upgrade offerings | MEDIUM | Add eligibility validator in content pipeline, quarantine broken entries, patch fallback sampler, run choice-quality test suite. |
+| Drop economy over-dominates progression | MEDIUM | Rebalance drop EV budgets, add pity/caps, run telemetry A/B sweep on scripted seeds, monitor progression variance. |
+| Restart state leak | HIGH | Implement full run-state factory reset, audit mutable references, add restart determinism contract tests, block release until clean. |
 
 ## Pitfall-to-Phase Mapping
 
-将风险前置到阶段里，避免“后补救”。
+How roadmap phases should address these pitfalls.
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| 渲染管线模糊与像素抖动 | Phase 1 - Rendering Baseline & Art Pipeline | 视觉回归截图在多 DPR/全屏下保持像素边缘清晰 |
-| 版权相似度过高 | Phase 1 - Art Direction Guardrails | 素材审查清单通过，外部评审不出现“高度雷同”反馈 |
-| 帧率影响手感与判定漂移 | Phase 2 - Core Combat Loop Determinism | 同脚本输入在 30/60/144 FPS 下得分与状态差异在阈值内 |
-| 视觉命中与逻辑命中不一致 | Phase 2 - Core Combat Loop Determinism | hitbox 可视化与回放结果一致，无“不可解释 miss/hit” |
-| 难度曲线雪崩或过平 | Phase 3 - Enemy System & Difficulty Tuning | 存活时长与击杀分布落在目标区间，方差受控 |
-| 输入/焦点/全屏冲突 | Phase 4 - Input/State Integration | 失焦/切屏/全屏切换后输入状态一致，无粘键 |
-| 自动化不可回归 | Phase 5 - Testability & Regression Harness | `render_game_to_text` 快照稳定，CI 可复现关键流程 |
-| Three.js 资源泄漏与长局掉帧 | Phase 6 - Performance Hardening | 10 分钟压力局 FPS/内存/GC 满足门禁阈值 |
+| XP grant logic is split across multiple combat paths | Phase 1 - Event Contract & Progression State Schema | Replay ledger shows `killEvents == xpEvents` and no duplicate grant IDs. |
+| Level-up choice is applied re-entrantly inside the simulation step | Phase 2 - Deterministic Runtime Integration | Transition tests prove level-up applies only at frame boundary. |
+| One global RNG stream couples spawn, drops, and upgrade offers | Phase 2 - Deterministic Runtime Integration | Same seed replays produce identical spawn/drop/offer sequences after refactors. |
+| Upgrade pool lacks eligibility and exclusivity rules | Phase 3 - Skill/Talent Choice Engine | Offer-generation tests guarantee unique, valid, state-changing options. |
+| Power scaling is unconstrained and collapses map challenge | Phase 4 - World Balance & Director Calibration | Balance sweep meets TTK and survival-band targets across canonical builds. |
+| Breakable-prop drop economy distorts progression pacing | Phase 4 - World Balance & Director Calibration | Telemetry confirms kill-based baseline progression remains stable under unlucky drops. |
+| Deterministic harness does not track progression-critical state | Phase 5 - Regression Harness & Observability | Snapshot schema contract includes progression fields and fails fast on missing keys. |
+| Run reset/resume leaks progression state between sessions | Phase 6 - Lifecycle Hardening & Release Gate | Restart/new-run deterministic tests pass for same seed and input script. |
 
 ## Sources
 
-- Three.js 官方文档（renderer、texture filtering、performance 与 resource disposal）
-- Playwright 自动化实践（稳定断言优先于固定等待）
-- 浏览器游戏开发常见事故复盘（输入焦点、帧率耦合、内存泄漏）
-- 动作游戏手感与可读性设计经验（telegraph、hit feedback、deterministic simulation）
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md`
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/codebase/CONCERNS.md`
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/codebase/TESTING.md`
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/research/FEATURES.md`
+- Established deterministic-simulation and action-survivor balancing practices from production postmortems
 
 ---
-*Pitfalls research for: Three.js 浏览器动作击杀游戏（HD pixel art）*
-*Researched: 2026-03-04*
+*Pitfalls research for: v1.1 World & Growth Overhaul deterministic progression loop*
+*Researched: 2026-03-05*

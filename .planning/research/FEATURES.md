@@ -1,133 +1,130 @@
 # Feature Research
 
-**Domain:** Three.js 浏览器动作击杀游戏（HD pixel art）
-**Researched:** 2026-03-04
+**Domain:** Action-survivor world/growth loop for `v1.1 World & Growth Overhaul`
+**Researched:** 2026-03-05
 **Confidence:** HIGH
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-缺少这些能力时，玩家会直接判断“这不是一个完整可玩的动作击杀游戏”。
+这部分是动作幸存者品类的基础预期，缺失会直接损害可玩性判断。
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| 稳定的移动与攻击输入（键盘） | 动作游戏的最低交互门槛是“按下即响应” | MEDIUM | 支持移动、攻击、暂停、重开、全屏；输入缓冲保持手感一致 |
-| 明确的命中判定与受击反馈 | 玩家需要知道攻击是否生效 | MEDIUM | 近战判定盒 + 命中特效 + 音效 + 轻微屏幕震动 |
-| 敌人刷新、追击与基础 AI | 没有持续敌压就无法形成击杀循环 | MEDIUM | 分波次或时间驱动刷新，行为保持可读而非复杂博弈 |
-| 生命值、死亡、重开闭环 | “失败-重试”是爽感循环的一部分 | LOW | 死亡态冻结输入，展示结算并支持快速重开 |
-| 分数与存活时长反馈 | 玩家默认会用分数衡量表现 | LOW | HUD 实时显示 score/time/kill count |
-| HD pixel art 渲染一致性 | 用户明确要求高清像素美术，不接受模糊插值 | MEDIUM | 贴图使用 nearest filter、像素对齐、分层背景与轮廓光 |
-| 可预测性能（60 FPS 目标） | 战斗手感依赖帧稳定 | MEDIUM | 首版控制对象数量，避免昂贵后处理；提供性能降级开关 |
-| 可自动化验证接口 | 项目目标包含自动回归能力 | LOW | 暴露 `window.render_game_to_text` 与 `window.advanceTime(ms)` |
+| Kill-based XP and level-up cadence | 玩家默认“杀怪=变强”，且每 30-90 秒应有一次成长反馈 | MEDIUM | Deps: combat kill events, XP curve config, HUD level state; level-up tempo must be deterministic-testable |
+| Level-up choice panel (typically 3 options, pick 1) | 该品类核心乐趣是 run 内构筑，而非纯数值堆叠 | MEDIUM | Deps: upgrade pool, rarity weights, pause/slow-time choice flow, apply-upgrade pipeline |
+| Expandable map sectors with readable traversal lanes | 中后期怪量上升后，玩家需要空间决策（kite/choke/escape） | HIGH | Deps: zone schema, spawn-point partitioning, collision/pathing stability |
+| Building collision readability (block, pass, partial cover) | 建筑必须“看得懂、撞得准”，否则会被认为不公平 | MEDIUM | Deps: building archetype data, collider tagging, enemy steering fallback |
+| Breakable prop risk/reward loop (optional detour) | 玩家通常期待场景交互至少能提供短期收益机会 | MEDIUM | Deps: prop HP/damage channel, break feedback, drop trigger + pickup rules |
 
 ### Differentiators (Competitive Advantage)
 
-这些能力不是“能玩”的底线，但决定“为什么值得持续玩”。
+这部分用于把 v1.1 从“可玩”提升到“值得反复玩”，且仍控制在单里程碑范围。
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| 击杀连锁（Kill Chain）与节奏倍率 | 让“高质量连续击杀”明显优于无脑清怪 | MEDIUM | 连续击杀提升得分倍率与短时攻速，断链后回落 |
-| 像素风宝可梦灵感敌群剪影系统 | 在不触碰版权素材前提下建立强识别度 | HIGH | 用原创轮廓语言映射“属性感”（火/草/电） |
-| 击杀瞬间电影化反馈 | 提升每次命中的主观爽感 | MEDIUM | 关键帧冻结（hit-stop）、定向抖动、像素粒子爆裂 |
-| “30 秒可读成长”构建 | 轻度玩家快速进入心流 | HIGH | 小型升级三选一，优先提升攻击范围/冷却/生存 |
-| 可回放的确定性战斗步进 | 同时服务玩法调参与自动化测试 | HIGH | 时间推进与随机种子可控，便于重现边界问题 |
+| Equipment drops from breakables with slot identity (weapon/core/charm) | 把地图互动与成长绑定，形成“绕路打箱子”决策张力 | HIGH | Deps: equipment schema, slot constraints, drop tables by prop type, on-run equip state |
+| Building-driven tactical micro-loops (funnel, line break, retreat windows) | 建筑不只是障碍，而是可利用的战术地形 | HIGH | Deps: enemy path heuristics, spawn-safe radius checks, building archetype behaviors |
+| Hybrid level-up design: skill (active modifier) vs talent (passive stat rule) | 强化“构筑方向感”，减少纯随机数值漂移 | HIGH | Deps: bifurcated upgrade taxonomy, exclusivity tags, synergy/anti-synergy rules |
+| Zone-specific drop bias (biome-lite without full biome system) | 让地图扩展带来可感知收益差异，而非仅视觉换皮 | MEDIUM | Deps: sector tagging, weighted loot override, deterministic RNG seed integration |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-这些需求看起来“更大更全”，但在当前阶段会显著伤害交付质量。
+这些是 v1.1 阶段最容易诱发范围失控的需求，应明确拒绝或降级实现。
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| 联机 PVP / 协作 | 玩家直觉上认为动作游戏“多人更好玩” | 网络同步、反作弊、延迟补偿会吞噬核心玩法迭代 | 先做本地排行榜 + 每日挑战种子 |
-| 官方宝可梦资产复刻 | IP 熟悉度高，传播快 | 高版权风险，且限制美术可控性 | 保持“灵感来源”但坚持原创像素角色库 |
-| 开放世界探索 + 主线剧情 | 看起来更“完整” | 内容制作成本远超战斗系统，验证周期过长 | 采用单场景高重玩战斗 + 轻叙事文案 |
-| 深度装备/背包系统 | 常见 RPG 心智，认为可提升长期留存 | 复杂状态和 UI 会干扰动作主循环 | 使用局内短时构筑（run-based upgrades） |
-| 全屏重后处理特效管线 | 视觉上“更高级” | 像素风易被糊化且 GPU 成本高 | 少量定制像素级特效（粒子/闪白/描边） |
+| Full procedural infinite map streaming | “地图越大越高级” | 需要流式加载、导航重建、长期性能治理，超出单里程碑 | Ship finite modular sectors with future expansion hooks |
+| Diablo-style persistent inventory + town stash | “掉装备就该有背包和仓库” | 会引入跨局经济与复杂 UI，偏离 run-based 核心 | Keep on-run ephemeral equipment only in v1.1 |
+| Fully destructible buildings/terrain physics | “可破坏越多越爽” | 破坏导航与碰撞确定性，回归测试成本激增 | Limit destructibility to tagged props, keep buildings static |
+| 6-8 upgrade choices per level | “选择越多越策略” | 决策疲劳、节奏中断、移动端可读性差 | Keep 3 choices with reroll/banish deferred |
+| Rare-drop hard dependency for progression | “稀有掉落驱动留存” | RNG 卡进度导致挫败，破坏成长曲线可控性 | Guarantee baseline power via XP levels, drops as acceleration |
 
 ## Feature Dependencies
 
 ```text
-[Core Input + Movement]
-    └──requires──> [Game State Machine]
-                       └──requires──> [Scene Bootstrap + Asset Loading]
+[Map Sector Expansion]
+    └──requires──> [Zone Data Schema]
+                      └──requires──> [Spawn Partition + Nav Collision Contracts]
 
-[Combat Hit Detection]
-    └──requires──> [Core Input + Movement]
-    └──requires──> [Enemy Spawn + Basic AI]
+[Richer Buildings]
+    └──requires──> [Building Archetype Definitions]
+    └──requires──> [Enemy Steering Around Obstacles]
 
-[Kill Chain Multiplier]
-    └──requires──> [Combat Hit Detection]
-    └──requires──> [Score System]
+[Breakable Props]
+    └──requires──> [Damage Routing]
+    └──requires──> [Drop Table Resolver]
+                      └──requires──> [RNG Seed Consistency]
 
-[HD Pixel Art Fidelity]
-    └──requires──> [Asset Pipeline + Nearest Sampling]
-    └──enhances──> [Combat Readability]
+[Kill-based Leveling]
+    └──requires──> [Kill Event Bus]
+    └──requires──> [XP Curve Config]
 
-[Deterministic Time Advance API]
-    └──requires──> [Game Loop Clock Abstraction]
-    └──enhances──> [Automated Regression Tests]
+[Skill/Talent Choices]
+    └──requires──> [Level-up Trigger]
+    └──requires──> [Upgrade Pool + Tag Rules]
 
-[Heavy Post-Processing]
-    └──conflicts──> [HD Pixel Art Fidelity]
-    └──conflicts──> [60 FPS Stability]
+[Deterministic Regression Harness]
+    └──enhances──> [Kill-based Leveling]
+    └──enhances──> [Skill/Talent Choices]
+    └──enhances──> [Drop Table Verification]
+
+[Monolithic Main Runtime]
+    └──conflicts──> [Low-risk feature iteration velocity]
 ```
 
 ### Dependency Notes
 
-- **Combat Hit Detection requires Enemy Spawn + Basic AI:** 没有可交互敌人就无法验证命中判定与击杀回路。
-- **Kill Chain Multiplier requires Score System:** 连击本质是对得分模型的时间窗口扩展，必须先有基础计分。
-- **Deterministic Time Advance API requires Game Loop Clock Abstraction:** 只有统一时钟抽象后，自动化脚本才能稳定推进战斗状态。
-- **HD Pixel Art Fidelity conflicts with Heavy Post-Processing:** 大量后处理会破坏像素边缘清晰度，与目标视觉语言冲突。
-- **Heavy Post-Processing conflicts with 60 FPS Stability:** 在敌群高密度阶段，性能抖动会直接损伤动作手感。
+- **Map Sector Expansion requires Zone Data Schema:** 没有统一分区数据结构，地图扩展会退化成硬编码，后续扩容成本陡增。
+- **Richer Buildings requires Enemy Steering Around Obstacles:** 建筑价值依赖 AI 可读绕行，否则会出现卡墙或无脑直线穿模感。
+- **Breakable Props requires Drop Table Resolver:** 可破坏本身不是目的，核心是“击破后有稳定可调收益”。
+- **Skill/Talent Choices requires Upgrade Pool + Tag Rules:** 若无标签约束，容易出现重复项、无效项或失衡组合。
+- **Deterministic Regression Harness enhances progression features:** v1.1 需要可回放验证升级节奏与掉落概率，避免每次调参都靠手打体感。
+- **Monolithic Main Runtime conflicts with iteration velocity:** `src/main.js` 现状会放大改动爆炸半径，建议按子系统切分但保持里程碑内最小重构。
 
 ## MVP Definition
 
-### Launch With (v1)
+### Launch With (v1.1)
 
-最小可行目标：验证“高清像素动作击杀循环”是否成立。
+单里程碑必须落地的最小闭环。
 
-- [ ] 核心状态机（开始页 / 战斗中 / 死亡结算 / 重开） — 形成完整可运行闭环
-- [ ] 键盘移动 + 主攻击 + 命中判定 + 击杀记分 — 验证核心乐趣
-- [ ] 敌人持续刷新与基础追击行为 — 形成稳定压力曲线
-- [ ] HUD（HP / score / timer / kill count） — 提供即时反馈
-- [ ] HD pixel art 基础管线（贴图采样、像素对齐、分层背景） — 满足明确视觉要求
-- [ ] 自动化接口（`render_game_to_text`、`advanceTime(ms)`） — 支撑回归测试与调参
+- [ ] Map sectors: fixed-size modular zones + spawn partition rules — 支撑“可扩展地图”目标
+- [ ] Building archetypes: at least 3 types (`blocker`, `funnel`, `soft-cover`) — 支撑建筑策略差异
+- [ ] Breakable props: tagged objects with HP, break feedback, and weighted equipment drops — 完成“击破-掉落”闭环
+- [ ] Kill XP leveling: configurable curve and deterministic level trigger — 完成“击杀成长”闭环
+- [ ] Level-up choices: 3-option pick-1 with skill/talent split — 完成“升级抉择”闭环
+- [ ] Regression visibility: text snapshot fields for level, offered upgrades, drops — 保障自动化验证可用
 
-### Add After Validation (v1.x)
+### Add After Validation (v1.1.x)
 
-在核心循环稳定后，提升留存与可玩深度。
+同主题增强，但不阻塞 v1.1 交付。
 
-- [ ] 连击倍率与击杀播报系统 — 当基础击杀循环通过可玩性验证后加入
-- [ ] 局内三选一成长（小型 rogue-lite） — 当首轮玩家反馈认为“后期变化不足”时加入
-- [ ] 敌人类型扩展（远程/冲锋/自爆） — 当单一敌人导致策略单调时加入
-- [ ] 音频层级优化与动态混音 — 当战斗信息密度上升时加入
+- [ ] Add 2-3 new building archetypes after baseline pathing stability passes soak tests
+- [ ] Add zone-specific drop bias after global drop rates meet fairness targets
+- [ ] Add one controlled reroll per level-up after choice quality metrics are collected
 
 ### Future Consideration (v2+)
 
-仅在证明核心体验具有持续吸引力后再投入。
+超出当前单里程碑范围，明确后置。
 
-- [ ] 每日挑战与种子排行榜 — 用于提升重复游玩目标
-- [ ] 多场景主题轮换（昼夜/天气） — 强化内容新鲜度
-- [ ] 手柄适配与按键重映射 UI — 扩展设备覆盖
-- [ ] 轻社交异步对比（好友分数影子） — 在不引入实时联机成本下增加竞争感
+- [ ] Persistent meta progression tied to equipment collection — 需先验证 run-loop 留存
+- [ ] Procedural biome transitions with dynamic hazards — 需先完成导航与性能分层
+- [ ] Advanced affix crafting economy — 需先有稳定背包/存档协议
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| 核心输入与移动 | HIGH | MEDIUM | P1 |
-| 命中判定与击杀反馈 | HIGH | MEDIUM | P1 |
-| 敌人刷新与基础 AI | HIGH | MEDIUM | P1 |
-| 状态机与重开闭环 | HIGH | LOW | P1 |
-| HUD 与计分计时 | MEDIUM | LOW | P1 |
-| HD pixel art 基础管线 | HIGH | MEDIUM | P1 |
-| 自动化可观测接口 | HIGH | LOW | P1 |
-| 连击倍率系统 | HIGH | MEDIUM | P2 |
-| 局内三选一成长 | HIGH | HIGH | P2 |
-| 多敌人行为扩展 | MEDIUM | MEDIUM | P2 |
-| 每日挑战排行榜 | MEDIUM | MEDIUM | P3 |
-| 多场景主题轮换 | LOW | HIGH | P3 |
+| Kill-based XP leveling | HIGH | MEDIUM | P1 |
+| Level-up skill/talent choices | HIGH | MEDIUM | P1 |
+| Map sector expansion hooks | HIGH | HIGH | P1 |
+| Richer building archetypes | HIGH | MEDIUM | P1 |
+| Breakable props with equipment drops | HIGH | HIGH | P1 |
+| Snapshot coverage for growth/drop states | HIGH | LOW | P1 |
+| Zone-specific drop bias | MEDIUM | MEDIUM | P2 |
+| Additional archetype variants | MEDIUM | MEDIUM | P2 |
+| Level-up reroll/banish controls | MEDIUM | MEDIUM | P3 |
 
 **Priority key:**
 - P1: Must have for launch
@@ -136,19 +133,20 @@
 
 ## Competitor Feature Analysis
 
-| Feature | Competitor A (Vampire Survivors) | Competitor B (Brotato) | Our Approach |
-|---------|-----------------------------------|-------------------------|--------------|
-| 战斗节奏 | 高频刷怪 + 自动攻击压力曲线 | 小地图强压缩 + 波次生存 | 保留高压节奏，但强调手动攻击命中爽感 |
-| 成长机制 | 局内升级与 build 叠加 | 武器与属性快速组合 | v1 先不复杂化，v1.x 再引入轻量三选一成长 |
-| 视觉风格 | 复古 2D 像素群战 | 卡通化俯视射击 | 采用 Three.js 3D 场景 + HD pixel art 混合表达 |
-| 可测试性 | 玩家向产品，自动化可见性较弱 | 同上 | 从 v1 起内置 deterministic API 供自动回归 |
+| Feature | Competitor A (Vampire Survivors) | Competitor B (Halls of Torment) | Our Approach |
+|---------|-----------------------------------|----------------------------------|--------------|
+| Kill-driven progression | Frequent XP gems and level spikes | Dense waves + stat scaling | Keep kill-driven leveling, expose deterministic curve configs |
+| Upgrade choice structure | Simple high-tempo pick-one upgrades | Heavier stat and trait layering | Use 3-option skill/talent split for clarity + build direction |
+| Map interaction | Limited destructibles, focus on kiting | Some environmental pressure | Make breakable props a first-class tactical detour with equipment drops |
+| Terrain/building role | Mostly pathing pressure | Arena geometry influences routing | Emphasize building archetypes as tactical tools, not just blockers |
 
 ## Sources
 
 - `/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md`
-- `get-shit-done/templates/research-project/FEATURES.md` 模板结构与约束
-- 参考品类：Vampire Survivors、Brotato、Soulstone Survivors（玩法分层与节奏设计）
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/REQUIREMENTS.md`
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/codebase/CONCERNS.md`
+- Genre references for pattern baselines: Vampire Survivors, Halls of Torment, Brotato
 
 ---
-*Feature research for: Three.js browser action kill game (HD pixel art)*
-*Researched: 2026-03-04*
+*Feature research for: v1.1 World & Growth Overhaul (action-survivor loop)*
+*Researched: 2026-03-05*

@@ -1,7 +1,7 @@
 # Stack Research
 
-**Domain:** Three.js 浏览器动作击杀游戏（HD pixel art）
-**Researched:** 2026-03-04
+**Domain:** v1.1 World & Growth Overhaul（地图扩展 + 建筑系统 + 掉落装备 + 等级成长 + 技能/天赋）
+**Researched:** 2026-03-05
 **Confidence:** HIGH
 
 ## Recommended Stack
@@ -10,104 +10,103 @@
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Node.js LTS | 24.x (Krypton) | 本地开发运行时、包管理与构建执行环境 | 2026 年仍在 LTS 主线，生命周期更长；与 Vite 7 / Vitest 4 兼容窗口更稳，减少后续升级扰动 |
-| Vite | 7.3.1 | 开发服务器、打包、生产构建 | 对原生 ESM 的浏览器游戏项目启动成本最低，HMR 快，配置面简洁，适合小团队高频迭代 |
-| Three.js | 0.183.2 | 3D 渲染、场景管理、材质与动画能力 | Three.js 生态成熟、文档完整、示例覆盖广；对“3D 场景 + 像素风材质表现”可控性高 |
-| Vanilla JavaScript (ES2023+) | 浏览器原生 | 游戏主循环、状态机、输入系统 | 当前项目约束明确为 Vanilla JS；避免过早引入框架抽象，先保证战斗循环和帧稳定 |
-| Playwright Test | 1.58.2 | 自动化回归（输入回放、状态断言、截图对比） | 与项目“可自动化验证接口（render_game_to_text/advanceTime）”高度契合，可稳定做 E2E 回归 |
+| JavaScript (ESM, Vanilla) | Existing (project baseline) | 继续承载 gameplay loop、状态更新、规则模块 | 当前代码已围绕纯函数规则 + 固定步长建立确定性基础，v1.1 不应引入框架迁移风险 |
+| Three.js | 0.183.2 (existing) | 世界渲染、建筑/道具可视化、像素风表达 | 当前渲染链已稳定（含测试时 noop renderer 路径），可直接承接地图与建筑扩展 |
+| Vite | 7.3.1 (existing) | 开发/构建与本地验证入口 | 现有测试与运行脚本已对齐，保持不变可避免构建链扰动确定性回归 |
+| Playwright + Node `node:test` | Playwright 1.58.2 (existing) | 端到端 burst 回归 + 规则/契约测试 | 已有 `advanceTime` 与 `render_game_to_text` 契约，适合继续扩展 v1.1 状态断言 |
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| three-stdlib | 2.36.1 | 对 Three 常用扩展（controls/loaders/post utils）的 ESM 友好封装 | 需要 OrbitControls、GLTFLoader、更易维护的 examples 能力时引入 |
-| postprocessing | 6.38.3 | 后处理效果（Bloom、Vignette、Outline） | 仅用于“击杀瞬间强化反馈”的少量效果；像素风项目应限制链路长度 |
-| @tweenjs/tween.js | 25.0.0 | 轻量补间动画（hit-stop 后回弹、UI 数字跳动） | 需要确定性、可控时序的小动画，而非复杂骨骼动画系统时使用 |
-| howler | 2.2.4 | 跨浏览器音频播放与管理（BGM/SFX） | 需要快速建立稳定音频层、避免直接操作 Web Audio 细节时使用 |
-| vite-plugin-glsl | 1.5.5 | 在 Vite 中导入 `.glsl/.vert/.frag` | 当项目引入自定义像素风 shader（描边、抖动、闪白）时启用 |
+| `zod` | 4.3.6 | 对地图分区、建筑定义、掉落池、技能树配置做加载期 schema 校验 | 当 v1.1 把玩法从硬编码转为数据驱动时启用；只做“加载时校验”，不进入每帧热路径 |
+| (No extra RNG/pathfinding runtime lib) | N/A | 保持当前内置 deterministic RNG 与简单追击逻辑 | v1.1 目标是可控扩展，不是重做 AI/导航系统；避免为暂不需要的复杂度付费 |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| Vitest 4.0.18 | 逻辑层单测（计分、冷却、刷新算法） | 推荐把纯逻辑从渲染层解耦，优先测试 deterministic 函数 |
-| ESLint 10.0.2 + Prettier 3.8.1 | 代码质量与格式统一 | ESLint 负责错误发现，Prettier 负责格式，不混用职责 |
-| Husky 9.1.7 + lint-staged 16.3.2 | 提交前质量门禁 | 在 pre-commit 执行 `eslint` + `vitest --run`，避免低级错误进入主线 |
+| TypeScript (check-only) | 用 `checkJs` + JSDoc 做数据结构静态检查 | 仅 `tsc --noEmit`，不做全量 TS 迁移；用于约束 `world config/drop table/talent` 结构一致性 |
+| Existing deterministic harness | 保持确定性行为可验证 | 继续使用 `test:determinism` 与 `test:burst`，并扩展 v1.1 字段断言 |
+
+## Integration Points (v1.1)
+
+- **Content layer（建议新增目录）**：`src/content/` 放 `zones`, `buildings`, `breakables`, `drops`, `progression`, `talents` 配置；启动阶段一次性加载并用 `zod` 校验。
+- **Simulation layer（现有主循环）**：`src/main.js` 内保持 fixed-step 更新，新增系统应以纯规则函数形式拆到 `src/*-rules.js`，禁止直接在渲染分支改核心状态。
+- **Determinism contract**：`src/determinism-harness.js` 增加 v1.1 关键信息快照（例如 `worldState`, `progression`, `equipment`），并通过 schema version 显式演进（例如 `1.1.0`）。
+- **Testing layer**：扩展 `tests/determinism-contract.test.js`（字段存在性、排序稳定、数值归一化）与 `tests/playwright-burst.test.js`（击破掉落、升级选择后的状态推进）。
+- **RNG discipline**：继续分离 `simulationRng` 与 `visualRng`；掉落、经验、升级候选都必须走 simulation RNG，避免视觉随机污染可回放结果。
+
+## Non-Goals for Stack Change
+
+- 不做框架迁移（例如 React/TS 全量重写/ECS 大迁移）。
+- 不引入重型物理引擎或导航网格库（当前需求不需要）。
+- 不引入数据库、后端服务、联机同步栈（里程碑范围外）。
+- 不把 schema 校验放进每帧更新路径（避免性能抖动与行为漂移）。
 
 ## Installation
 
 ```bash
-# 0) Runtime (recommended)
-nvm install 24
-nvm use 24
-node -v
+# Core
+# no change needed for existing core runtime stack
 
-# 1) Bootstrap (if the repo is still empty)
-npm create vite@latest poke-threes-hunter -- --template vanilla
-cd poke-threes-hunter
+# Supporting
+npm install zod@4.3.6
 
-# 2) Core runtime deps
-npm install three@0.183.2 three-stdlib@2.36.1 postprocessing@6.38.3 @tweenjs/tween.js@25.0.0 howler@2.2.4 vite-plugin-glsl@1.5.5
-
-# 3) Dev/test/tooling deps
-npm install -D @playwright/test@1.58.2 vitest@4.0.18 eslint@10.0.2 prettier@3.8.1 husky@9.1.7 lint-staged@16.3.2 @types/three@0.183.1
-
-# 4) Install Playwright browsers
-npx playwright install --with-deps
+# Dev dependencies
+npm install -D typescript@5.9.3
 ```
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| Three.js + Vanilla JS | React Three Fiber (R3F) | 当团队以 React 为主、UI 系统复杂、需要声明式组件化复用时 |
-| Vite 7 | Rsbuild / Rspack | 当项目进入大型 monorepo、需要更激进的增量构建与统一构建平台时 |
-| Playwright Test | Cypress | 当测试目标更偏传统业务表单 UI，而不是高频键盘输入与 canvas 游戏回放时 |
+| `zod` 加载期校验 | `ajv` + JSON Schema | 当配置规模巨大、需要预编译 schema 或跨服务共享 schema 标准时 |
+| TypeScript check-only (`checkJs`) | Full TypeScript migration | 当 v1.1 后模块持续扩张且团队确认可接受一次性迁移成本时 |
+| 现有内置 LCG + seed 管理 | `seedrandom` 等外部 RNG 库 | 仅当需要跨项目统一 RNG 算法或与外部工具对齐同一随机序列时 |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| webpack 4 / 老旧脚手架 | 冷启动与增量构建慢，维护成本高，不适合快速迭代动作游戏 | Vite 7 |
-| `three/examples/js` 全局脚本式引用 | 依赖隐式全局变量，tree-shaking 和模块边界差，后续维护困难 | `three/addons` 或 `three-stdlib` 的 ESM 引入 |
-| Cannon.js（原仓库） | 长期缺乏维护，生态老化，问题排查成本高 | 轻量项目用自定义 AABB/网格碰撞；重物理场景用 Rapier（按需） |
-| 全屏重后处理链（多级 bloom + TAA + FXAA 叠加） | 会稀释 HD pixel art 清晰边缘并抬高 GPU 开销，影响 60 FPS 稳定性 | 只保留 1-2 个关键反馈效果 + 像素对齐渲染策略 |
+| 在玩法逻辑中直接使用 `Math.random()` | 破坏可回放与可断言，导致 harness 不稳定 | 统一走 simulation RNG（带 seed） |
+| 立即引入 ECS/physics 大框架（如 bitecs/rapier） | v1.1 功能收益不足以覆盖重构与回归成本 | 延续当前轻量模块化规则系统 |
+| 将地图/掉落/天赋继续硬编码在 `main.js` | 扩展成本高，且难做结构化测试 | 数据配置文件 + 加载期 schema 校验 |
 
 ## Stack Patterns by Variant
 
-**If 目标是 v1 快速验证（单场景、单人击杀闭环）:**
-- Use `Three.js + Vanilla JS + fixed timestep loop + AABB hit detection`
-- Because 复杂度最低，最容易保证 `render_game_to_text` 与 `advanceTime(ms)` 的确定性
+**If v1.1 只做固定地图扩展（非程序化生成）:**
+- Use `static content config + zod load validation + deterministic spawn/drop tables`
+- Because 可维护性提升最大，且不会破坏现有 deterministic harness
 
-**If 目标是 v1.5 高密度敌群与特效（200+ active entities）:**
-- Use `object pooling + InstancedMesh + constrained postprocessing`
-- Because 能显著降低 GC 抖动与 draw call 压力，保持动作手感稳定
+**If v1.1 需要可破坏物体与装备掉落联动:**
+- Use `breakable-rules.js + drop-rules.js`（纯函数）
+- Because 可在 `node:test` 直接验证“同 seed 同结果”，并保持渲染与规则解耦
 
-**If 目标是移动端兼容优先:**
-- Use `DPR clamp (1.0~1.5) + texture atlas + selective effects`
-- Because 移动端带宽与热管理敏感，先保帧稳定再加视觉装饰
+**If v1.1 引入等级与技能/天赋三选一:**
+- Use `progression-rules.js + talent-rules.js` + snapshot contract 扩展
+- Because 升级选择属于核心状态转移，必须进入确定性快照与回归断言
 
 ## Version Compatibility
 
 | Package A | Compatible With | Notes |
 |-----------|-----------------|-------|
-| `vite@7.3.1` | `node@^20.19.0 || >=22.12.0` | 在 2026 建议直接使用 `node@24.x`，避免 Node 20 接近生命周期尾部 |
-| `vitest@4.0.18` | `node@^20.0.0 || ^22.0.0 || >=24.0.0` | 与 Vite 7 一起在 Node 24 下可减少版本分裂 |
-| `@playwright/test@1.58.2` | `node@>=18` | Node 24 fully covered；建议锁定 Playwright 主次版本，避免 browser binary 漂移 |
-| `postprocessing@6.38.3` | `three@>=0.157.0 <0.184.0` | `three@0.183.2` 在兼容区间内 |
-| `@types/three@0.183.1` | `three@0.183.2` | 即使主项目是 JS，编辑器类型提示仍建议保持同代版本 |
+| `vite@7.3.1` | `node@^20.19.0 || >=22.12.0` | 来源于当前 lockfile，建议团队统一 Node 22+ 或 24 LTS |
+| `playwright@1.58.2` | `node@>=18` | 现有脚本可继续使用；建议锁主次版本避免浏览器二进制漂移 |
+| `typescript@5.9.3` | `node@>=14.17` | 仅 check-only 用途，对运行时零影响 |
+| `zod@4.3.6` | current Node baseline | 用于加载期校验，避免进入每帧热点路径 |
 
 ## Sources
 
-- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md` — 项目约束（Three.js + Vanilla JS + Vite + Playwright）
-- [Node.js Release Schedule](https://raw.githubusercontent.com/nodejs/Release/main/schedule.json) — LTS 周期与 2026 推荐运行时
-- [npm: three](https://www.npmjs.com/package/three) — 当前发布版本验证
-- [npm: vite](https://www.npmjs.com/package/vite) — 当前发布版本与 engine 约束
-- [npm: @playwright/test](https://www.npmjs.com/package/@playwright/test) — 当前发布版本与 engine 约束
-- [npm: postprocessing](https://www.npmjs.com/package/postprocessing) — 与 three 的 peer compatibility
-- [Vite Docs](https://vite.dev/guide/) — 构建与开发体验基线
-- [Playwright Docs](https://playwright.dev/docs/intro) — 自动化测试能力基线
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md` — v1.1 目标与范围边界
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/codebase/STACK.md` — 现有栈与版本基线
+- `/Users/zhangjinhui/Desktop/gsd-demo/.planning/codebase/ARCHITECTURE.md` — 现有分层与 deterministic hooks
+- `/Users/zhangjinhui/Desktop/gsd-demo/package.json` — 当前依赖与脚本
+- `/Users/zhangjinhui/Desktop/gsd-demo/package-lock.json` — Vite engine compatibility（Node 约束）
+- [npm: zod](https://www.npmjs.com/package/zod) — 版本与发布信息
+- [npm: typescript](https://www.npmjs.com/package/typescript) — 版本与 engine 信息
+- [npm: playwright](https://www.npmjs.com/package/playwright) — engine 与现有兼容性
 
 ---
-*Stack research for: Three.js browser action kill game (HD pixel art)*
-*Researched: 2026-03-04*
+*Stack research for: v1.1 world and growth overhaul on deterministic Three.js runtime*
+*Researched: 2026-03-05*
