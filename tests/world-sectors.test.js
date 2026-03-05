@@ -21,6 +21,13 @@ import {
   resolveSectorIdForPosition,
 } from "../src/world-sectors.js";
 
+const ENEMY_TEST_FALLBACK_BOUNDS = Object.freeze({
+  minX: -20.5,
+  maxX: 20.5,
+  minY: -11,
+  maxY: 11,
+});
+
 test("topology exposes deterministic hub-first sector order", () => {
   assert.deepEqual(WORLD_SECTOR_IDS, ["hub", "north", "east", "south"]);
   assert.equal(WORLD_SECTORS[0].id, HUB_SECTOR_ID);
@@ -154,4 +161,76 @@ test("boundary resolver falls back to deterministic clamp when outside sector ma
   assert.equal(resolved.x, 19.9999);
   assert.equal(resolved.y, 10.9999);
   assert.equal(resolveSectorForBoundaryPosition({ x: resolved.x, y: resolved.y }), null);
+});
+
+test("enemy pursuit crosses legal lane and remains stable after entering hub", () => {
+  const player = { x: 0, y: 0 };
+  let enemy = { x: 0, y: -9, sectorId: "north" };
+  const sectorHistory = [];
+
+  for (let i = 0; i < 220; i += 1) {
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const len = Math.hypot(dx, dy) || 1;
+
+    const resolved = resolveEnemyBoundaryMovement({
+      position: { x: enemy.x, y: enemy.y },
+      velocity: {
+        x: (dx / len) * 3.2,
+        y: (dy / len) * 3.2,
+      },
+      dt: 1 / 60,
+      currentSectorId: enemy.sectorId,
+      fallbackBounds: ENEMY_TEST_FALLBACK_BOUNDS,
+    });
+
+    enemy = { x: resolved.x, y: resolved.y, sectorId: resolved.sectorId };
+    sectorHistory.push(enemy.sectorId);
+  }
+
+  const firstHubIndex = sectorHistory.indexOf("hub");
+  assert.ok(firstHubIndex >= 0);
+  assert.equal(sectorHistory.slice(firstHubIndex).every((sectorId) => sectorId === "hub"), true);
+});
+
+test("enemy pursuit respects blocked boundary before lane realignment", () => {
+  let enemy = { x: 6.5, y: -8, sectorId: "north" };
+
+  for (let i = 0; i < 120; i += 1) {
+    const resolved = resolveEnemyBoundaryMovement({
+      position: { x: enemy.x, y: enemy.y },
+      velocity: { x: 0, y: 3.1 },
+      dt: 1 / 60,
+      currentSectorId: enemy.sectorId,
+      fallbackBounds: ENEMY_TEST_FALLBACK_BOUNDS,
+    });
+    enemy = { x: resolved.x, y: resolved.y, sectorId: resolved.sectorId };
+    assert.equal(enemy.sectorId, "north");
+    assert.ok(enemy.y <= -6 + 1e-3);
+  }
+
+  const postRealignmentSectors = [];
+  for (let i = 0; i < 320; i += 1) {
+    const dx = -enemy.x;
+    const dy = -enemy.y;
+    const len = Math.hypot(dx, dy) || 1;
+
+    const resolved = resolveEnemyBoundaryMovement({
+      position: { x: enemy.x, y: enemy.y },
+      velocity: {
+        x: (dx / len) * 3.1,
+        y: (dy / len) * 3.1,
+      },
+      dt: 1 / 60,
+      currentSectorId: enemy.sectorId,
+      fallbackBounds: ENEMY_TEST_FALLBACK_BOUNDS,
+    });
+
+    enemy = { x: resolved.x, y: resolved.y, sectorId: resolved.sectorId };
+    postRealignmentSectors.push(enemy.sectorId);
+  }
+
+  const firstHubIndex = postRealignmentSectors.indexOf("hub");
+  assert.ok(firstHubIndex >= 0);
+  assert.equal(postRealignmentSectors.slice(firstHubIndex).every((sectorId) => sectorId === "hub"), true);
 });

@@ -16,10 +16,23 @@ import {
   createWorldTraversalState,
   resolveSectorIdForPosition,
 } from "./world-sectors.js";
+import { resolveEnemyBoundaryMovement, resolvePlayerBoundaryMovement } from "./world-collision.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
 const ARENA_HALF_HEIGHT = 11.5;
+const PLAYER_MOVEMENT_FALLBACK_BOUNDS = Object.freeze({
+  minX: -ARENA_HALF_WIDTH + 1,
+  maxX: ARENA_HALF_WIDTH - 1,
+  minY: -ARENA_HALF_HEIGHT + 1,
+  maxY: ARENA_HALF_HEIGHT - 1,
+});
+const ENEMY_MOVEMENT_FALLBACK_BOUNDS = Object.freeze({
+  minX: -ARENA_HALF_WIDTH + 0.5,
+  maxX: ARENA_HALF_WIDTH - 0.5,
+  minY: -ARENA_HALF_HEIGHT + 0.5,
+  maxY: ARENA_HALF_HEIGHT - 0.5,
+});
 const PLAYER_BASE_SPEED = 9.2;
 const PLAYER_ATTACK_COOLDOWN = 0.32;
 const PLAYER_ATTACK_RADIUS = 2.9;
@@ -644,6 +657,7 @@ function spawnEnemy() {
     speed: enemyType.speed,
     points: enemyType.points,
     flash: 0,
+    sectorId: null,
     sprite,
   });
   state.nextEnemyId += 1;
@@ -840,11 +854,11 @@ function clearCombatObjects() {
   state.particles = [];
 }
 
-function updateWorldTraversalFromPlayerPosition() {
-  const nextSectorId = resolveSectorIdForPosition(
-    { x: state.player.x, y: state.player.y },
-    state.world?.currentSectorId,
-  );
+function updateWorldTraversalFromPlayerPosition(nextSectorHint = null) {
+  const nextSectorId =
+    typeof nextSectorHint === "string"
+      ? nextSectorHint
+      : resolveSectorIdForPosition({ x: state.player.x, y: state.player.y }, state.world?.currentSectorId);
   state.world = advanceWorldTraversalState(state.world, nextSectorId);
 }
 
@@ -965,20 +979,28 @@ function applyPlayerInput(dt) {
   const yDir = (down ? 1 : 0) - (up ? 1 : 0);
 
   const len = Math.hypot(xDir, yDir);
+  let desiredVx = 0;
+  let desiredVy = 0;
   if (len > 0) {
-    state.player.vx = (xDir / len) * PLAYER_BASE_SPEED;
-    state.player.vy = (yDir / len) * PLAYER_BASE_SPEED;
+    desiredVx = (xDir / len) * PLAYER_BASE_SPEED;
+    desiredVy = (yDir / len) * PLAYER_BASE_SPEED;
     state.player.facingX = xDir / len;
     state.player.facingY = yDir / len;
-  } else {
-    state.player.vx = 0;
-    state.player.vy = 0;
   }
 
-  state.player.x += state.player.vx * dt;
-  state.player.y += state.player.vy * dt;
-  state.player.x = clamp(state.player.x, -ARENA_HALF_WIDTH + 1, ARENA_HALF_WIDTH - 1);
-  state.player.y = clamp(state.player.y, -ARENA_HALF_HEIGHT + 1, ARENA_HALF_HEIGHT - 1);
+  const resolved = resolvePlayerBoundaryMovement({
+    position: { x: state.player.x, y: state.player.y },
+    velocity: { x: desiredVx, y: desiredVy },
+    dt,
+    currentSectorId: state.world?.currentSectorId,
+    fallbackBounds: PLAYER_MOVEMENT_FALLBACK_BOUNDS,
+  });
+
+  state.player.x = resolved.x;
+  state.player.y = resolved.y;
+  state.player.vx = resolved.vx;
+  state.player.vy = resolved.vy;
+  updateWorldTraversalFromPlayerPosition(resolved.sectorId);
 }
 
 function doAttack() {
@@ -1077,18 +1099,28 @@ function updateEnemies(dt) {
     const dx = state.player.x - enemy.x;
     const dy = state.player.y - enemy.y;
     const len = Math.hypot(dx, dy) || 1;
+    const desiredVx = (dx / len) * enemy.speed;
+    const desiredVy = (dy / len) * enemy.speed;
 
-    enemy.vx = (dx / len) * enemy.speed;
-    enemy.vy = (dy / len) * enemy.speed;
+    const resolved = resolveEnemyBoundaryMovement({
+      position: { x: enemy.x, y: enemy.y },
+      velocity: { x: desiredVx, y: desiredVy },
+      dt,
+      currentSectorId: enemy.sectorId,
+      fallbackBounds: ENEMY_MOVEMENT_FALLBACK_BOUNDS,
+    });
 
-    enemy.x += enemy.vx * dt;
-    enemy.y += enemy.vy * dt;
-
-    enemy.x = clamp(enemy.x, -ARENA_HALF_WIDTH + 0.5, ARENA_HALF_WIDTH - 0.5);
-    enemy.y = clamp(enemy.y, -ARENA_HALF_HEIGHT + 0.5, ARENA_HALF_HEIGHT - 0.5);
+    enemy.vx = resolved.vx;
+    enemy.vy = resolved.vy;
+    enemy.x = resolved.x;
+    enemy.y = resolved.y;
+    enemy.sectorId = resolved.sectorId;
 
     const collideDistance = state.player.radius + enemy.radius;
-    if (len <= collideDistance && state.player.invulnerable <= 0) {
+    const postMoveDx = state.player.x - enemy.x;
+    const postMoveDy = state.player.y - enemy.y;
+    const postMoveDistance = Math.hypot(postMoveDx, postMoveDy);
+    if (postMoveDistance <= collideDistance && state.player.invulnerable <= 0) {
       state.player.hp -= 11;
       state.player.invulnerable = 0.54;
       addHitShake(0.32, 0.1);
@@ -1242,7 +1274,6 @@ function updateGameStep(dt) {
     }
 
     applyPlayerInput(dt);
-    updateWorldTraversalFromPlayerPosition();
 
     if (consumeEdge(pressedThisStep, "Space")) {
       doAttack();
