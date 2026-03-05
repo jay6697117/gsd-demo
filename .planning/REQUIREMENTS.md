@@ -79,41 +79,41 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MAP-01 | TBD | Pending |
-| MAP-02 | TBD | Pending |
-| MAP-03 | TBD | Pending |
-| MAP-04 | TBD | Pending |
-| BLD-01 | TBD | Pending |
-| BLD-02 | TBD | Pending |
-| BLD-03 | TBD | Pending |
-| BLD-04 | TBD | Pending |
-| LOOT-01 | TBD | Pending |
-| LOOT-02 | TBD | Pending |
-| LOOT-03 | TBD | Pending |
-| LOOT-04 | TBD | Pending |
-| LOOT-05 | TBD | Pending |
-| PROG-01 | TBD | Pending |
-| PROG-02 | TBD | Pending |
-| PROG-03 | TBD | Pending |
-| PROG-04 | TBD | Pending |
-| PROG-05 | TBD | Pending |
-| TAL-01 | TBD | Pending |
-| TAL-02 | TBD | Pending |
-| TAL-03 | TBD | Pending |
-| TAL-04 | TBD | Pending |
-| TAL-05 | TBD | Pending |
-| TAL-06 | TBD | Pending |
-| AUTO-04 | TBD | Pending |
-| AUTO-05 | TBD | Pending |
-| AUTO-06 | TBD | Pending |
-| AUTO-07 | TBD | Pending |
-| AUTO-08 | TBD | Pending |
+| MAP-01 | Phase 06 | Pending |
+| MAP-02 | Phase 06 | Pending |
+| MAP-03 | Phase 06 | Pending |
+| MAP-04 | Phase 06 | Pending |
+| BLD-01 | Phase 07 | Pending |
+| BLD-02 | Phase 07 | Pending |
+| BLD-03 | Phase 07 | Pending |
+| BLD-04 | Phase 07 | Pending |
+| LOOT-01 | Phase 08 | Pending |
+| LOOT-02 | Phase 08 | Pending |
+| LOOT-03 | Phase 08 | Pending |
+| LOOT-04 | Phase 08 | Pending |
+| LOOT-05 | Phase 08 | Pending |
+| PROG-01 | Phase 09 | Pending |
+| PROG-02 | Phase 09 | Pending |
+| PROG-03 | Phase 09 | Pending |
+| PROG-04 | Phase 09 | Pending |
+| PROG-05 | Phase 09 | Pending |
+| TAL-01 | Phase 10 | Pending |
+| TAL-02 | Phase 10 | Pending |
+| TAL-03 | Phase 10 | Pending |
+| TAL-04 | Phase 10 | Pending |
+| TAL-05 | Phase 10 | Pending |
+| TAL-06 | Phase 10 | Pending |
+| AUTO-04 | Phase 11 | Pending |
+| AUTO-05 | Phase 11 | Pending |
+| AUTO-06 | Phase 11 | Pending |
+| AUTO-07 | Phase 11 | Pending |
+| AUTO-08 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 29 total
-- Mapped to phases: 0
-- Unmapped: 29 ⚠️ (to be filled by roadmap generation)
+- Mapped to phases: 29
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-05 after milestone v1.1 scoping*
+*Last updated: 2026-03-05 after roadmap mapping (phases 06-11)*
