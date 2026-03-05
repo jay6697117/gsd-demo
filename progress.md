@@ -52,3 +52,32 @@ Original prompt: 开发一个threes.js 宝可梦 高清 像素艺术 HD pixel ar
 - Add lightweight SFX layer (attack hit / kill / game-over) using howler.
 - Add one additional enemy behavior variant (dash or ranged) for v1.1 depth.
 - Split `src/main.js` into modules (`loop`, `combat`, `render`, `ui`) for maintainability.
+
+## 2026-03-04 Phase 3 Feedback Enhancement Chunk
+- Merged stashed feedback rules assets into mainline without regressing determinism/control flow.
+- Added deterministic feedback rules module:
+  - `src/feedback-rules.js`
+  - Combo milestone detection (`x3/x5/x8`)
+  - Low-HP danger state evaluator
+  - Optional tempo / chain warning helpers for future use
+- Integrated selective runtime usage in `src/main.js`:
+  - Combo banner milestone selection now uses `getComboMilestone`
+  - Danger overlay demand now uses `getDangerState`
+  - Existing `render_game_to_text` / `advanceTime` contract and control-state logic kept intact
+- Added unit coverage:
+  - `tests/feedback-rules.test.js`
+  - Covers tempo phase windows, milestone detection, danger pulse, and chain warning threshold logic
+
+## 2026-03-04 Verification Evidence (Fresh)
+- Rule tests:
+  - `node --test tests/feedback-rules.test.js` → 5/5 pass
+- Build:
+  - `npm run build` → pass (non-blocking chunk-size warning remains)
+- Regression smoke (determinism + burst) remained green after merge:
+  - `node --test tests/determinism-contract.test.js`
+  - `node tests/playwright-burst.test.js`
+
+## Suggested Next TODOs
+- Add a deterministic scripted combo scenario to consistently reach `x3` milestone for artifact-level verification.
+- Split `src/main.js` into focused modules (`feedback`, `combat`, `spawning`, `ui`) for maintainability.
+- Consider lightweight audio feedback layer aligned with hit/kill/milestone channels.

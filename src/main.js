@@ -9,6 +9,7 @@ import {
   sortedKeys,
 } from "./control-rules.js";
 import { buildDeterministicSnapshot, computeAdvanceSteps } from "./determinism-harness.js";
+import { getComboMilestone, getDangerState } from "./feedback-rules.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -29,7 +30,6 @@ const FEEDBACK_PARTICLE_HARD_CAP = 120;
 const FEEDBACK_PARTICLE_RESERVED_FOR_KILL = 18;
 const FEEDBACK_PARTICLE_EVENT_CAP = 20;
 const FEEDBACK_BANNER_RATE_LIMIT_SECONDS = 0.68;
-const FEEDBACK_DANGER_HP_THRESHOLD = 36;
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -777,8 +777,9 @@ function triggerMilestoneFeedback(killsThisSwing, chainValue) {
     return;
   }
 
-  if (chainValue >= 3 && chainValue % 3 === 0) {
-    setCenterBanner(`CHAIN x${chainValue}`, "chain", 0.58);
+  const comboMilestone = getComboMilestone(chainValue);
+  if (comboMilestone !== null) {
+    setCenterBanner(`CHAIN x${comboMilestone}`, "chain", 0.58);
   }
 }
 
@@ -797,10 +798,11 @@ function updateFeedbackState(dt) {
   state.feedback.killPriorityTimer = Math.max(0, state.feedback.killPriorityTimer - dt);
   state.feedback.bannerTimer = Math.max(0, state.feedback.bannerTimer - dt);
 
-  const dangerDemand =
+  const dangerState =
     state.mode === "playing"
-      ? clamp((FEEDBACK_DANGER_HP_THRESHOLD - state.player.hp) / FEEDBACK_DANGER_HP_THRESHOLD, 0, 0.72)
-      : 0;
+      ? getDangerState(state.player.hp, PLAYER_MAX_HP, state.time)
+      : { isDanger: false, flashAlpha: 0 };
+  const dangerDemand = clamp(dangerState.flashAlpha * 0.72, 0, 0.72);
   const dangerTarget = state.feedback.killPriorityTimer > 0 ? dangerDemand * 0.35 : dangerDemand;
   const interp = clamp(dt * 8.2, 0, 1);
   state.feedback.dangerOverlay += (dangerTarget - state.feedback.dangerOverlay) * interp;
