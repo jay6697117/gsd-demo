@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: World & Growth Overhaul
-current_phase: "06"
+milestone_name: milestone
+current_phase: 06
 current_phase_name: World Sectors & Spawn Determinism
 current_plan: —
-status: roadmap ready
-stopped_at: Roadmap for v1.1 generated
-last_updated: "2026-03-05T07:33:31.000Z"
+status: planning
+stopped_at: Phase 06 context gathered
+last_updated: "2026-03-05T10:37:48.402Z"
 last_activity: 2026-03-05
 progress:
   total_phases: 6
@@ -63,9 +63,9 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-05T07:33:31Z
-- **Stopped At:** Roadmap for v1.1 generated
-- **Resume File:** None
+- **Last session:** 2026-03-05T10:37:48.397Z
+- **Stopped At:** Phase 06 context gathered
+- **Resume File:** .planning/phases/06-world-sectors-spawn-determinism/06-CONTEXT.md
 
 ## Project Reference
 
