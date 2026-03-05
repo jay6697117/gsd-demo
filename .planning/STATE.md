@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 06
 current_phase_name: World Sectors & Spawn Determinism
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-05T16:33:40.325Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-05T17:22:08.068Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 75
+  completed_plans: 2
+  percent: 83
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 06
 - **Current Phase Name:** World Sectors & Spawn Determinism
 - **Total Phases:** 6
-- **Current Plan:** 2
+- **Current Plan:** 3
 - **Total Plans in Phase:** 4
 - **Status:** Ready to execute
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Completed 06-01-PLAN.md and ready for 06-02-PLAN.md
-- **Progress:** [████████░░] 75%
+- **Last Activity Description:** Completed 06-02-PLAN.md and ready for 06-03-PLAN.md
+- **Progress:** [████████░░] 83%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -43,6 +43,7 @@ progress:
 | Phase 03 P01 | 14 min | 2 tasks | 2 files |
 | Phase 04 P01 | 8 min | 2 tasks | 3 files |
 | Phase 06 P01 | 4 min | 2 tasks | 3 files |
+| Phase 06 P02 | 3 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -59,6 +60,8 @@ progress:
 - [Milestone v1.1]: Prioritize map/building refactor and progression loop before introducing economy/trading systems.
 - [Phase 06]: Adopted an ordered hub-plus-ring topology contract as the single source of truth for runtime and tests. — One deterministic topology source keeps sector transition logic and assertions aligned for MAP-01.
 - [Phase 06]: Traversal state is projected through render_game_to_text via world current/visited/transition summary fields. — Phase 06 downstream plans require machine-readable traversal evidence for deterministic automation assertions.
+- [Phase 06]: Extracted sector-boundary movement into pure APIs and reused them for player and enemy updates to prevent rule drift. — A shared pure resolver keeps movement behavior deterministic and prevents divergence between player traversal and enemy pursuit boundary rules.
+- [Phase 06]: Applied collision contact checks after enemy boundary resolution so chase damage uses final deterministic positions. — Post-resolution distance checks remove one-frame mismatch at sector boundaries and stabilize chase contact behavior.
 
 ### Blockers
 
@@ -66,8 +69,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-05T16:33:01.094Z
-- **Stopped At:** Completed 06-01-PLAN.md
+- **Last session:** 2026-03-05T17:09:46.183Z
+- **Stopped At:** Completed 06-02-PLAN.md
 - **Resume File:** None
 
 ## Project Reference
