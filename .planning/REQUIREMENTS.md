@@ -1,97 +1,119 @@
 # Requirements: PokeThrees Hunter
 
-**Defined:** 2026-03-04
+**Defined:** 2026-03-05
 **Core Value:** 玩家在 30 秒内就能感受到“清晰可读的像素美术 + 准确响应的战斗操作 + 明确成长反馈”的核心乐趣。
+**Active Milestone:** v1.1 World & Growth Overhaul
 
-## v1 Requirements
+## v1.1 Requirements
 
-### Core Loop
+### World & Map
 
-- [x] **CORE-01**: User can start a run from a start screen and enter combat within 2 interactions.
-- [x] **CORE-02**: User can lose the run when HP reaches 0 and see a game-over summary.
-- [x] **CORE-03**: User can restart from game-over and return to combat within 3 seconds.
-- [x] **CORE-04**: User can pause and resume gameplay without corrupting movement/attack state.
+- [ ] **MAP-01**: User can enter and traverse at least 3 connected map sectors in one run.
+- [ ] **MAP-02**: User movement and enemy pursuit remain collision-stable at sector boundaries.
+- [ ] **MAP-03**: Enemy spawn distribution follows sector rules and is deterministic for the same seed and timeline.
+- [ ] **MAP-04**: User can recognize safe lanes/choke zones visually during active combat.
 
-### Combat
+### Buildings
 
-- [x] **COMB-01**: User can move the player character in four directions using keyboard input.
-- [x] **COMB-02**: User can trigger a primary attack with a clear cooldown feedback.
-- [x] **COMB-03**: User attack can damage enemies with deterministic hit detection.
-- [x] **COMB-04**: Enemy units spawn continuously and pursue the player in combat mode.
-- [x] **COMB-05**: Enemy contact or attacks can reduce player HP with visible feedback.
-- [x] **COMB-06**: Enemy death removes enemy from active world and increments kill count.
+- [ ] **BLD-01**: User can encounter at least 3 building archetypes with distinct tactical behavior (`blocker`, `funnel`, `soft-cover`).
+- [ ] **BLD-02**: User can leverage buildings to reduce immediate pressure (line-break, kite pivot, retreat window).
+- [ ] **BLD-03**: Enemy steering handles building obstacles without persistent stuck/loop behavior.
+- [ ] **BLD-04**: Building interactions do not break deterministic combat state transitions.
 
-### Feedback & Pixel Art
+### Breakables, Loot, and Equipment
 
-- [x] **VIZ-01**: User sees HD pixel art style rendering with nearest-neighbor visual clarity.
-- [x] **VIZ-02**: User sees layered background and readable foreground contrast during combat.
-- [x] **VIZ-03**: User sees hit/kill feedback (flash, shake, or particles) when attacks land.
-- [x] **VIZ-04**: User sees real-time HUD values for HP, score, time survived, and kills.
+- [ ] **LOOT-01**: User can damage and destroy tagged breakable props during combat.
+- [ ] **LOOT-02**: Destroyed props can roll equipment drops from weighted deterministic drop tables.
+- [ ] **LOOT-03**: User can pick up equipment and place it into defined slots (`weapon`, `core`, `charm`).
+- [ ] **LOOT-04**: User can replace currently equipped items with clear stat-delta feedback.
+- [ ] **LOOT-05**: Drop outcomes are reproducible under identical seed and input timeline.
 
-### Controls & UX
+### Progression
 
-- [x] **UX-01**: User can toggle fullscreen with `f` and exit fullscreen with `Esc`.
-- [x] **UX-02**: User can view minimal control hints before gameplay starts.
-- [x] **UX-03**: User can continue reliable keyboard control after focus change and resume.
+- [ ] **PROG-01**: User gains XP from monster kills.
+- [ ] **PROG-02**: User levels up when XP crosses configurable thresholds.
+- [ ] **PROG-03**: User receives exactly one level-up decision event per threshold crossing.
+- [ ] **PROG-04**: User sees level and XP progress in HUD during combat.
+- [ ] **PROG-05**: New run/restart resets run-local progression state without leaking previous run values.
 
-### Testability & Determinism
+### Skills & Talents
 
-- [x] **AUTO-01**: User (or automation) can call `window.render_game_to_text()` to get current gameplay-relevant JSON state.
-- [x] **AUTO-02**: User (or automation) can call `window.advanceTime(ms)` to deterministically step simulation time.
-- [x] **AUTO-03**: Automated Playwright action bursts can progress gameplay and produce screenshots/state artifacts without runtime errors.
+- [ ] **TAL-01**: User is offered 3 upgrade choices at each level-up event.
+- [ ] **TAL-02**: User can select exactly one option and resume combat without input lock.
+- [ ] **TAL-03**: Choice pool supports both skill-type and talent-type upgrades with eligibility/exclusion constraints.
+- [ ] **TAL-04**: Duplicate or invalid options are filtered out from a single choice panel.
+- [ ] **TAL-05**: Applied upgrades produce immediate measurable combat-state impact.
+- [ ] **TAL-06**: Upgrade flow supports advanced high-complexity controls (reroll and pool constraints) with deterministic behavior.
 
-## v2 Requirements
+### Determinism & Testability
 
-### Progression & Replayability
+- [ ] **AUTO-04**: `window.render_game_to_text()` includes world/progression/equipment/offer/rng fields required for v1.1 assertions.
+- [ ] **AUTO-05**: `window.advanceTime(ms)` preserves deterministic outcomes across map, drop, and level-up pipelines.
+- [ ] **AUTO-06**: Automated tests cover `breakable -> drop -> equip` end-to-end flow.
+- [ ] **AUTO-07**: Automated tests cover `kill -> xp -> levelup -> choose-upgrade` end-to-end flow.
+- [ ] **AUTO-08**: Regression tests verify restart parity for progression and equipment state reset.
 
-- **PROG-01**: User can choose one upgrade from 3 options at timed intervals.
-- **PROG-02**: User can build kill-chain multiplier bonuses through continuous eliminations.
-- **PROG-03**: User can fight multiple enemy archetypes with distinct attack patterns.
+## Future Requirements (v1.2+)
 
 ### Meta Layer
 
 - **META-01**: User can view local best-score history across runs.
 - **META-02**: User can play daily seeded challenge runs.
 
+### Extended Progression
+
+- **PROG-06**: User can access persistent cross-run progression.
+- **PROG-07**: User can manage long-term equipment inventory and stash.
+
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Official Pokemon character/assets reproduction | Copyright/legal risk, replaced with original pixel creatures inspired by monster-battle fantasy |
-| Online multiplayer/co-op/PvP | High networking complexity, not needed to validate v1 core combat loop |
-| Open world exploration and story campaign | Content-heavy scope that delays combat core validation |
-| Full equipment/inventory RPG systems | Adds UI/state complexity before core loop maturity |
+| Official Pokemon character/assets reproduction | Copyright/legal risk, replaced by original pixel art designs |
+| Online multiplayer/co-op/PvP | Not part of current single-run progression milestone |
+| Story campaign and quest tree | Would dilute focus from world/growth core loop |
+| Fully procedural infinite map streaming | High runtime and tooling complexity; deferred beyond v1.1 |
+| Full destructible terrain physics | Conflicts with deterministic movement/pathing guarantees |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 1 | Complete |
-| CORE-02 | Phase 2 | Complete |
-| CORE-03 | Phase 2 | Complete |
-| CORE-04 | Phase 4 | Complete |
-| COMB-01 | Phase 2 | Complete |
-| COMB-02 | Phase 2 | Complete |
-| COMB-03 | Phase 2 | Complete |
-| COMB-04 | Phase 2 | Complete |
-| COMB-05 | Phase 2 | Complete |
-| COMB-06 | Phase 2 | Complete |
-| VIZ-01 | Phase 1 | Complete |
-| VIZ-02 | Phase 1 | Complete |
-| VIZ-03 | Phase 3 | Complete |
-| VIZ-04 | Phase 2 | Complete |
-| UX-01 | Phase 4 | Complete |
-| UX-02 | Phase 1 | Complete |
-| UX-03 | Phase 4 | Complete |
-| AUTO-01 | Phase 5 | Complete |
-| AUTO-02 | Phase 5 | Complete |
-| AUTO-03 | Phase 5 | Complete |
+| MAP-01 | TBD | Pending |
+| MAP-02 | TBD | Pending |
+| MAP-03 | TBD | Pending |
+| MAP-04 | TBD | Pending |
+| BLD-01 | TBD | Pending |
+| BLD-02 | TBD | Pending |
+| BLD-03 | TBD | Pending |
+| BLD-04 | TBD | Pending |
+| LOOT-01 | TBD | Pending |
+| LOOT-02 | TBD | Pending |
+| LOOT-03 | TBD | Pending |
+| LOOT-04 | TBD | Pending |
+| LOOT-05 | TBD | Pending |
+| PROG-01 | TBD | Pending |
+| PROG-02 | TBD | Pending |
+| PROG-03 | TBD | Pending |
+| PROG-04 | TBD | Pending |
+| PROG-05 | TBD | Pending |
+| TAL-01 | TBD | Pending |
+| TAL-02 | TBD | Pending |
+| TAL-03 | TBD | Pending |
+| TAL-04 | TBD | Pending |
+| TAL-05 | TBD | Pending |
+| TAL-06 | TBD | Pending |
+| AUTO-04 | TBD | Pending |
+| AUTO-05 | TBD | Pending |
+| AUTO-06 | TBD | Pending |
+| AUTO-07 | TBD | Pending |
+| AUTO-08 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0 ✓
+- v1.1 requirements: 29 total
+- Mapped to phases: 0
+- Unmapped: 29 ⚠️ (to be filled by roadmap generation)
 
 ---
-*Requirements defined: 2026-03-04*
-*Last updated: 2026-03-05 after Phase 5 execution*
+*Requirements defined: 2026-03-05*
+*Last updated: 2026-03-05 after milestone v1.1 scoping*
