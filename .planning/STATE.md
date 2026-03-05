@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 05
-current_phase_name: automation & determinism harness
-current_plan: Not started
-status: completed
-stopped_at: Completed Phase 05 verification and closure
-last_updated: "2026-03-05T01:54:33.588Z"
+milestone: v1.1
+milestone_name: World & Growth Overhaul
+current_phase: Not started
+current_phase_name: defining requirements
+current_plan: —
+status: defining requirements
+stopped_at: Milestone v1.1 initialized
+last_updated: "2026-03-05T06:45:00.000Z"
 last_activity: 2026-03-05
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: PokeThrees Hunter
@@ -23,17 +23,18 @@ progress:
 
 ## Current Position
 
-- **Current Phase:** 05
-- **Current Phase Name:** automation & determinism harness
-- **Total Phases:** 5
-- **Current Plan:** Completed (all phase plans finished)
-- **Total Plans in Phase:** 2
-- **Status:** Milestone complete
+- **Current Milestone:** v1.1 World & Growth Overhaul
+- **Current Phase:** Not started
+- **Current Phase Name:** defining requirements
+- **Total Phases:** TBD (to be generated in ROADMAP)
+- **Current Plan:** —
+- **Total Plans in Phase:** —
+- **Status:** Defining requirements
 - **Last Activity:** 2026-03-05
-- **Last Activity Description:** Phase 05 complete (verification passed)
-- **Progress:** [██████████] 100%
+- **Last Activity Description:** Milestone v1.1 started (requirements definition in progress)
+- **Progress:** [░░░░░░░░░░] 0%
 
-## Performance Metrics
+## Performance Metrics (Historical v1.0)
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
@@ -54,6 +55,7 @@ progress:
 - [Phase 03]: Added banner rate limiting and danger-overlay suppression during kill-priority windows.
 - [Phase 04]: Extracted control transition logic into pure helpers in `src/control-rules.js` for deterministic pause/focus/fullscreen behavior.
 - [Phase 04]: Adopted fullscreen failure diagnostics (`lastResult`, `lastError`, counters) instead of mutating gameplay mode.
+- [Milestone v1.1]: Prioritize map/building refactor and progression loop before introducing economy/trading systems.
 
 ### Blockers
 
@@ -61,8 +63,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-04T15:36:40Z
-- **Stopped At:** Completed Phase 05 verification and closure
+- **Last session:** 2026-03-05T06:45:00Z
+- **Stopped At:** Milestone v1.1 initialized
 - **Resume File:** None
 
 ## Project Reference
