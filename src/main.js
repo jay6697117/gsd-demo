@@ -10,6 +10,12 @@ import {
 } from "./control-rules.js";
 import { buildDeterministicSnapshot, computeAdvanceSteps } from "./determinism-harness.js";
 import { getComboMilestone, getDangerState } from "./feedback-rules.js";
+import {
+  advanceWorldTraversalState,
+  buildWorldTraversalSummary,
+  createWorldTraversalState,
+  resolveSectorIdForPosition,
+} from "./world-sectors.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -263,6 +269,7 @@ const state = {
     webglAvailable: rendererRuntime.meta.webglAvailable,
     renderError: rendererRuntime.meta.renderError,
   },
+  world: createWorldTraversalState(),
   control: {
     pause: {
       lastTransition: "init",
@@ -833,6 +840,14 @@ function clearCombatObjects() {
   state.particles = [];
 }
 
+function updateWorldTraversalFromPlayerPosition() {
+  const nextSectorId = resolveSectorIdForPosition(
+    { x: state.player.x, y: state.player.y },
+    state.world?.currentSectorId,
+  );
+  state.world = advanceWorldTraversalState(state.world, nextSectorId);
+}
+
 function startRun() {
   clearCombatObjects();
   clearInputState();
@@ -853,6 +868,7 @@ function startRun() {
   state.player.invulnerable = 0;
   state.player.facingX = 0;
   state.player.facingY = -1;
+  state.world = createWorldTraversalState(resolveSectorIdForPosition({ x: state.player.x, y: state.player.y }));
   state.gameOverSummary = "";
   state.shakeTime = 0;
   state.shakeStrength = 0;
@@ -1226,6 +1242,7 @@ function updateGameStep(dt) {
     }
 
     applyPlayerInput(dt);
+    updateWorldTraversalFromPlayerPosition();
 
     if (consumeEdge(pressedThisStep, "Space")) {
       doAttack();
@@ -1304,18 +1321,18 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 function renderGameToText() {
-  return JSON.stringify(
-    buildDeterministicSnapshot({
-      state,
-      keyboardDown,
-      pressedThisStep,
-      sortedKeysFn: sortedKeys,
-      fixedStepSeconds: FIXED_STEP,
-      particleCap: FEEDBACK_PARTICLE_HARD_CAP,
-      manualSteppingMode,
-      determinismMeta: state.determinism,
-    }),
-  );
+  const snapshot = buildDeterministicSnapshot({
+    state,
+    keyboardDown,
+    pressedThisStep,
+    sortedKeysFn: sortedKeys,
+    fixedStepSeconds: FIXED_STEP,
+    particleCap: FEEDBACK_PARTICLE_HARD_CAP,
+    manualSteppingMode,
+    determinismMeta: state.determinism,
+  });
+  snapshot.world = buildWorldTraversalSummary(state.world);
+  return JSON.stringify(snapshot);
 }
 
 window.render_game_to_text = renderGameToText;
