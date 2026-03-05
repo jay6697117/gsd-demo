@@ -4,172 +4,158 @@
 
 ## Tech Debt
 
-**God file for game runtime orchestration:**
-- Issue: Core loop, state machine, input handling, rendering, UI sync, and deterministic hooks are concentrated in one large file.
-- Files: `src/main.js`
-- Impact: Change blast radius is high; small feature edits can break unrelated flows (pause/focus/fullscreen/combat) and review cost is high.
-- Fix approach: Split into focused modules (`loop`, `combat`, `feedback`, `controls`, `ui-sync`), keep side effects at one entrypoint.
-- Priority: High
+**Monolithic runtime orchestration in one entry file:**
+- Issue: Game loop, state transitions, rendering, combat, UI synchronization, and browser event handling are all implemented in one large module.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Why: Fast iteration favored direct in-file implementation over subsystem boundaries.
+- Impact: High change blast radius; unrelated regressions are easy to introduce during small edits.
+- Fix approach: Extract runtime subsystems (`loop`, `combat`, `effects`, `controls`, `ui`) and keep side effects isolated in one bootstrap layer.
 
-**Repeated lifecycle/disposal logic for render objects:**
-- Issue: Sprite/particle/slash creation and disposal are manually repeated in multiple places.
-- Files: `src/main.js`
-- Impact: Easy to introduce resource leaks or inconsistent cleanup when adding new effect types.
-- Fix approach: Centralize object factories + disposal helpers with shared ownership boundaries.
-- Priority: Medium
+**Cross-module contracts are implicit and string-literal driven:**
+- Issue: State fields and mode values are coordinated across modules without a shared schema or runtime validator.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/control-rules.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/feedback-rules.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/determinism-harness.js`
+- Why: Lightweight JavaScript structure without explicit type contracts.
+- Impact: Refactors can silently desynchronize shape/field assumptions and break determinism snapshots.
+- Fix approach: Introduce a shared state contract module (or TypeScript + strict checks) and centralize mode constants.
 
-**Determinism and production runtime concerns are tightly coupled:**
-- Issue: Test-oriented deterministic controls are embedded directly into runtime flow.
-- Files: `src/main.js`, `src/determinism-harness.js`
-- Impact: Future gameplay features may accidentally depend on test hooks, increasing regression risk.
-- Fix approach: Gate deterministic debug APIs behind build flags and isolate harness adapter layer.
-- Priority: Medium
+**Determinism hooks are coupled to production runtime:**
+- Issue: Test-oriented stepping and snapshot APIs are exported directly to `window` in the main runtime.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Why: Deterministic automation was integrated by extending the main runtime surface.
+- Impact: Runtime behavior and test harness concerns are tightly coupled, increasing accidental misuse risk.
+- Fix approach: Gate deterministic APIs by environment flags and expose them via a dedicated debug adapter.
 
 ## Known Bugs
 
-**Potential cross-browser mismatch in visibility/fullscreen event targets:**
-- Symptoms: Focus/pause or fullscreen state metadata may fail to update on some environments.
-- Files: `src/main.js`
-- Trigger: `visibilitychange`/`fullscreenchange` listeners are attached to `window` instead of canonical `document`/element targets.
-- Workaround: Keep blur/focus fallback logic, but behavior is still platform-dependent.
-- Root cause: Event source assumptions are not normalized.
-- Priority: High
+**`visibilitychange` listener uses `window` instead of canonical `document` target:**
+- Symptoms: Focus recovery/pause metadata can become inconsistent in browser environments that do not route the event to `window`.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Trigger: Tab visibility changes while the game is in active play.
+- Workaround: `blur`/`focus` handlers partially compensate, but behavior remains event-order dependent.
+- Root cause: Event target assumptions are broader than browser guarantees for `visibilitychange`.
 
-**Time stepping may under-advance or over-advance for non-step-aligned inputs:**
-- Symptoms: `advanceTime(ms)` can drift from expected simulated duration for arbitrary `ms` values.
-- Files: `src/determinism-harness.js`, `src/main.js`
-- Trigger: Step count uses `Math.round(clampedMs / stepMs)` with forced minimum of 1 step.
-- Workaround: Callers pass multiples of 16.666ms (60 FPS step).
-- Root cause: Rounding strategy optimizes simplicity, not strict elapsed-time fidelity.
-- Priority: Medium
+**Enemy hit check uses stale distance after movement integration:**
+- Symptoms: Borderline contact damage can be delayed by one tick, producing inconsistent feel at close range.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Trigger: Enemy starts just outside collision range, moves into range within the same update step.
+- Workaround: Small fixed `dt` reduces frequency but does not remove edge cases.
+- Root cause: Collision test compares against `len` computed before enemy position update.
 
-**Enemy collision check uses pre-move distance:**
-- Symptoms: Fast close-range contacts can register one tick late (or feel inconsistent at boundary conditions).
-- Files: `src/main.js`
-- Trigger: Collision condition uses `len` computed before enemy position update.
-- Workaround: Low `dt` masks most cases but does not remove edge-case mismatch.
-- Root cause: Distance is not recomputed after movement integration.
-- Priority: Medium
+**`advanceTime(0)` still advances simulation by one fixed step:**
+- Symptoms: Zero-duration deterministic calls mutate state/time unexpectedly.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/determinism-harness.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js`
+- Trigger: `computeAdvanceSteps(0, fixedStep)` path in deterministic automation.
+- Workaround: Callers avoid zero-duration stepping.
+- Root cause: Step conversion enforces `Math.max(1, ...)` even when requested duration is zero.
 
 ## Security Considerations
 
-**Determinism control APIs are globally exposed in production bundle:**
-- Risk: Anyone with console access can force simulation progression and inspect full gameplay state, which blocks trustworthy competitive scoring.
-- Files: `src/main.js`
-- Current mitigation: None (always exported on `window`).
-- Recommendations: Expose only in test/dev builds, or guard with explicit runtime debug flag.
-- Priority: High
+**Global deterministic control and full-state introspection are always exposed:**
+- Risk: Browser console access can force deterministic progression and inspect internal runtime state.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Current mitigation: None.
+- Recommendations: Restrict debug APIs to dev/test builds and hide them behind explicit runtime flags.
 
-**Third-party font CDN dependency without strict policy controls:**
-- Risk: External font requests leak client metadata and add supply-chain/network dependency for first render.
-- Files: `index.html`
-- Current mitigation: `preconnect` is present, but no CSP/SRI/self-host fallback.
-- Recommendations: Self-host fonts or add strict CSP + fallback font strategy.
-- Priority: Low
+**External font CDN dependency without strict policy controls:**
+- Risk: External requests leak client metadata and introduce a supply-chain dependency for render-critical assets.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/index.html`
+- Current mitigation: Basic `preconnect`.
+- Recommendations: Self-host fonts or enforce strict CSP with reliable local fallback.
 
 ## Performance Bottlenecks
 
-**Per-enemy sprite texture/material allocation on every spawn:**
-- Problem: New canvas texture + sprite material are created for each enemy instance.
-- Files: `src/main.js`
-- Measurement: Build is functional, but this pattern scales poorly under spawn pressure and increases GC churn.
-- Cause: No cache for identical enemy archetype assets.
-- Improvement path: Cache textures/material templates by enemy type and clone lightweight sprite instances.
-- Priority: High
+**Enemy spawn path allocates fresh canvas textures/materials per instance:**
+- Problem: Each spawned enemy creates new GPU/CPU-side texture/material objects.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Measurement: Pattern is allocation-heavy by design; no texture/material cache exists for repeated archetypes.
+- Cause: Sprite factory creates per-instance texture/material rather than archetype-level reuse.
+- Improvement path: Cache textures/material templates per enemy type and reuse sprite resources.
 
-**Per-particle and per-slash geometry/material churn:**
-- Problem: Combat feedback allocates many short-lived Three.js objects every second.
-- Files: `src/main.js`
-- Measurement: At sustained combat, allocations are bounded by caps but still produce frequent GC spikes on lower-end devices.
-- Cause: No pooling/reuse strategy for effects.
-- Improvement path: Introduce object pools and shared geometries/materials for slash/particle systems.
-- Priority: High
+**Particle/slash effects create short-lived geometry/material objects at high frequency:**
+- Problem: Combat feedback emits many transient Three.js allocations.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Measurement: Hard caps exist (`FEEDBACK_PARTICLE_HARD_CAP = 120`) but object churn still creates GC pressure.
+- Cause: No pooling/reuse for particle and slash render objects.
+- Improvement path: Add object pools and shared geometry/material resources.
 
-**Initial bundle size exceeds Vite warning threshold:**
-- Problem: Production JS chunk is over 500 kB minified.
-- Files: `package.json`, `src/main.js`
-- Measurement: `npm run build` reports `dist/assets/index-*.js` around 522.78 kB and chunk-size warning.
-- Cause: Single-entry architecture plus full runtime in one module.
-- Improvement path: Split modules and lazy-load non-critical runtime/debug surfaces.
-- Priority: Medium
+**Bundle size warning indicates limited code-splitting headroom:**
+- Problem: Main production JS chunk exceeds warning threshold.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Measurement: `npm run build` reports `dist/assets/index-CLshM1Hp.js` at `522.78 kB` minified.
+- Cause: Single-entry architecture and centralized runtime code.
+- Improvement path: Split non-critical runtime/debug surfaces with dynamic import boundaries.
 
 ## Fragile Areas
 
-**Control-state transitions are sensitive to update order:**
-- Files: `src/main.js`, `src/control-rules.js`
-- Why fragile: Pause/focus/fullscreen/restart transitions are interwoven with per-frame updates and side effects.
-- Common failures: A small ordering change can break recovery flow or key edge consumption.
-- Safe modification: Keep transition logic pure, enforce explicit state transition tests before reordering frame pipeline.
-- Test coverage: Pure helper tests exist, but integrated transition sequencing is lightly covered.
-- Priority: High
+**DOM binding assumes required elements always exist:**
+- Why fragile: Startup reads required nodes without null guards, then immediately attaches listeners.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/index.html`
+- Common failures: Runtime crash during bootstrap when IDs change or partial embeds omit expected nodes.
+- Safe modification: Add explicit DOM contract checks with fail-fast diagnostics.
+- Test coverage: No degraded-DOM bootstrap test exists.
 
-**Boot assumes required DOM nodes always exist:**
-- Files: `src/main.js`, `index.html`
-- Why fragile: Missing or renamed elements will throw during module evaluation.
-- Common failures: Runtime crash before game loop starts in embedding/refactor scenarios.
-- Safe modification: Add defensive null checks and fail-fast diagnostics around DOM binding.
-- Test coverage: No automated test for degraded/missing DOM contracts.
-- Priority: Medium
+**Control-state transitions depend on strict update ordering:**
+- Why fragile: Fullscreen, pause, focus recovery, restart, and edge-key consumption are interleaved in one frame pipeline.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/control-rules.js`
+- Common failures: Small ordering shifts can regress pause/focus behavior and restart timing.
+- Safe modification: Keep transition logic pure and assert sequence behavior with integration tests before reordering.
+- Test coverage: Rule-level tests exist, but integrated sequencing coverage is limited.
 
 ## Scaling Limits
 
-**Active combat entity caps are hard-coded for stability, not scalability:**
+**Combat throughput is capped by fixed hard limits:**
 - Current capacity: `MAX_ACTIVE_ENEMIES = 26`, `FEEDBACK_PARTICLE_HARD_CAP = 120`.
-- Files: `src/main.js`
-- Limit: Increasing combat density requires structural performance work; current caps hide rather than solve throughput limits.
-- Symptoms at limit: Spawn cadence throttles and visual feedback may be culled.
-- Scaling path: Object pooling + batched updates + per-device quality tiers.
-- Priority: Medium
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
+- Limit: Higher density gameplay requires structural performance changes, not just larger constants.
+- Symptoms at limit: Spawn throttling and feedback culling under sustained pressure.
+- Scaling path: Device-tier quality settings, pooling, and batch-friendly update paths.
 
-**Manual deterministic stepping has a hard upper bound:**
-- Current capacity: `MAX_ADVANCE_STEPS = 7200` (~120s at 60 FPS) per call.
-- Files: `src/determinism-harness.js`
-- Limit: Long-range replay/soak scenarios need segmented stepping.
-- Symptoms at limit: Calls silently cap and cannot represent requested long durations exactly.
-- Scaling path: Expose chunked stepping API with explicit continuation metadata.
-- Priority: Low
+**Deterministic stepping is capped per call:**
+- Current capacity: `MAX_ADVANCE_STEPS = 7200` (~120 seconds at 60 FPS per call).
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/determinism-harness.js`
+- Limit: Long replay/soak scenarios require repeated segmented calls.
+- Symptoms at limit: Requested long durations are truncated by cap.
+- Scaling path: Add chunked stepping API with explicit continuation metadata.
 
 ## Dependencies at Risk
 
-**Playwright is listed as runtime dependency:**
-- Risk: Production installs pull test tooling footprint and browser-related transitive surface unnecessarily.
-- Files: `package.json`, `tests/playwright-burst.test.js`
-- Impact: Larger install size, slower CI/deploy setup, avoidable supply-chain exposure for runtime environments.
-- Migration plan: Move `playwright` to `devDependencies` and keep test scripts unchanged.
-- Priority: Medium
+**Playwright is installed as a runtime dependency instead of dev-only:**
+- Risk: Production installs include browser-automation tooling and larger transitive footprint.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`
+- Impact: Larger install surface and avoidable dependency risk in runtime environments.
+- Migration plan: Move `playwright` from `dependencies` to `devDependencies`.
 
 ## Missing Critical Features
 
-**No structured runtime cleanup lifecycle for hot reload/unmount:**
-- Problem: Global listeners and RAF loop are started unconditionally with no teardown handler.
-- Files: `src/main.js`
+**No explicit teardown lifecycle for listeners and RAF loop:**
+- Problem: Runtime initializes global listeners and animation loop unconditionally, with no cleanup API.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`
 - Current workaround: Full page reload resets state.
-- Blocks: Reliable embedding/re-initialization and cleaner dev HMR behavior.
+- Blocks: Safe embedding/re-mount patterns and deterministic cleanup in hot-reload contexts.
 - Implementation complexity: Medium.
-- Priority: Medium
 
 ## Test Coverage Gaps
 
-**Core gameplay integration logic is largely untested at unit level:**
-- What's not tested: `startRun`, `updateGameStep`, `doAttack`, enemy collision/damage, and restart transition correctness.
-- Files: `src/main.js`, `tests/control-rules.test.js`, `tests/determinism-contract.test.js`
-- Risk: Refactors in main loop can regress combat/state behavior without fast failing tests.
-- Priority: High
-- Difficulty to test: Requires extracting side-effect-heavy logic into testable pure modules or harnessable adapters.
+**Core gameplay transitions and combat branches are not directly unit-tested:**
+- What's not tested: `startRun`, `updateGameStep`, `doAttack`, collision damage edge cases, restart transition race paths.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js`
+- Risk: Refactors can break gameplay correctness without fast, localized failures.
+- Priority: High.
+- Difficulty to test: Requires extraction of side-effect-heavy logic into testable subsystems.
 
-**Focus/fullscreen browser-compatibility matrix is not regression-tested:**
-- What's not tested: Browser differences for focus/visibility/fullscreen event ordering and listener targets.
-- Files: `src/main.js`, `tests/playwright-burst.test.js`
-- Risk: Platform-specific input/state bugs escape CI because current burst test validates only a narrow happy path.
-- Priority: High
-- Difficulty to test: Needs multi-scenario Playwright flows and assertions on control-state metadata transitions.
+**Browser event-order compatibility is only lightly validated:**
+- What's not tested: Cross-browser ordering differences for blur/focus/visibility/fullscreen transitions.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`
+- Risk: Platform-specific control-state regressions can pass CI unnoticed.
+- Priority: High.
+- Difficulty to test: Needs multi-scenario Playwright assertions for transition metadata.
 
-**Performance regressions lack automated guardrails:**
-- What's not tested: Allocation pressure and frame-time stability under sustained combat.
-- Files: `src/main.js`, `tests/playwright-burst.test.js`
-- Risk: Future visual polish may degrade FPS or increase GC stalls without detection.
-- Priority: Medium
-- Difficulty to test: Requires lightweight performance budget assertions in scripted runs.
+**Performance regression budgets are not automated:**
+- What's not tested: Allocation churn and frame-time behavior under sustained high-entity combat.
+- Files: `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`
+- Risk: Visual feature growth can degrade responsiveness with no CI guardrail.
+- Priority: Medium.
+- Difficulty to test: Requires scripted stress profile and budget thresholds in CI.
 
 ---
 

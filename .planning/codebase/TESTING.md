@@ -4,46 +4,47 @@
 
 ## Test Framework
 
-**Runner and assertions:**
-- Unit/contract tests use Node built-in test runner and assertion library:
-  - `import test from "node:test";`
-  - `import assert from "node:assert/strict";`
-  - see `tests/control-rules.test.js`, `tests/feedback-rules.test.js`, `tests/determinism-contract.test.js`.
-- Browser/runtime smoke testing uses Playwright through a standalone Node script (`tests/playwright-burst.test.js`) rather than `node:test` suites.
+**Runner:**
+- Unit and contract tests use the Node built-in runner (`node:test`) in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js\``, `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/feedback-rules.test.js\``, and `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js\``.
+- Browser/runtime integration smoke uses Playwright in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js\``.
+- There is no dedicated test config file at `\`/Users/zhangjinhui/Desktop/gsd-demo\`` (`vitest.config.*`, `jest.config.*`, and `playwright.config.*` are absent).
 
-**Configuration files:**
-- No dedicated test config file is present (no `vitest.config.*`, `jest.config.*`, `playwright.config.*` in repository root).
-- Test behavior is encoded directly in each test file and npm scripts (`package.json`).
+**Assertion Library:**
+- Assertions are from `node:assert/strict`.
+- Common matchers are `assert.equal`, `assert.deepEqual`, and `assert.ok`.
 
-**Run commands (current repository):**
+**Run Commands:**
 ```bash
-npm run test:determinism                        # Script in package.json; runs determinism contract
-npm run test:burst                              # Script in package.json; runs Playwright burst harness
-node --test tests/control-rules.test.js         # Direct unit test run
-node --test tests/feedback-rules.test.js        # Direct unit test run
-node --test tests/determinism-contract.test.js  # Direct contract test run
-node tests/playwright-burst.test.js             # Direct E2E-like smoke run
+npm run test:determinism                        # Contract test entry from /Users/zhangjinhui/Desktop/gsd-demo/package.json
+npm run test:burst                              # Playwright burst smoke from /Users/zhangjinhui/Desktop/gsd-demo/package.json
+node --test /Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js
+node --test /Users/zhangjinhui/Desktop/gsd-demo/tests/feedback-rules.test.js
+node --test /Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js
+node /Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js
 ```
 
 ## Test File Organization
 
-**Location and naming:**
-- All tests live in top-level `tests/` directory.
-- Naming follows `*.test.js`:
-  - `tests/control-rules.test.js`
-  - `tests/feedback-rules.test.js`
-  - `tests/determinism-contract.test.js`
-  - `tests/playwright-burst.test.js`
-- Source and tests are separated by directory (`src/` vs `tests/`), not colocated.
+**Location:**
+- Tests are centralized in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests\``.
+- Source and test trees are separate (`\`/Users/zhangjinhui/Desktop/gsd-demo/src\`` vs `\`/Users/zhangjinhui/Desktop/gsd-demo/tests\``).
 
-**Current structure:**
+**Naming:**
+- All files follow `*.test.js`.
+- Current files:
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js\``
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/feedback-rules.test.js\``
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js\``
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js\``
+
+**Structure:**
 ```text
-src/
+/Users/zhangjinhui/Desktop/gsd-demo/src/
   control-rules.js
   feedback-rules.js
   determinism-harness.js
   main.js
-tests/
+/Users/zhangjinhui/Desktop/gsd-demo/tests/
   control-rules.test.js
   feedback-rules.test.js
   determinism-contract.test.js
@@ -52,69 +53,125 @@ tests/
 
 ## Test Structure
 
-- Tests are function-oriented and flat: repeated `test("...", () => { ... })` blocks instead of deep nested suites.
-- Assertions are explicit and deterministic (`assert.equal`, `assert.deepEqual`, `assert.ok`).
-- Common pattern is arrange/act/assert in sequence, even when comments are omitted.
-- Contract tests use local factory helper for repeatable fixtures:
-  - `buildMockState()` in `tests/determinism-contract.test.js`.
-- Determinism checks include idempotence assertions (`deepEqual` and JSON-string equality) in `tests/determinism-contract.test.js`.
+**Suite Organization:**
+```javascript
+import test from "node:test";
+import assert from "node:assert/strict";
 
-## Mocking Strategy
+test("behavior statement", () => {
+  // arrange
+  // act
+  // assert
+  assert.equal(actual, expected);
+});
+```
 
-**Mock framework usage:**
-- No Jest/Vitest/Sinon mock API is used.
-- No module-level mocking (`mock`, `spyOn`) appears in current test files.
+**Patterns:**
+- Flat test layout is preferred over deep nesting; each behavior is encoded as a standalone `test(...)`.
+- Determinism contracts use factory helpers (`buildMockState`) for repeatable setup in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js\``.
+- Runtime smoke validates both state payload shape and browser error channels in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js\``.
 
-**How dependencies are controlled:**
-- Pure function tests pass explicit in-memory inputs (for example `Set` instances in `tests/control-rules.test.js`).
-- Contract tests inject controlled callbacks and state objects (for example `sortedKeysFn`, `state` in `tests/determinism-contract.test.js`).
-- Browser harness controls environment by initialization hook:
-  - `page.addInitScript(() => { window.__GSD_DISABLE_WEBGL__ = true; })` in `tests/playwright-burst.test.js`.
-- External boundary isolation is done by process orchestration, not mock framework:
-  - spawns Vite dev server via `child_process.spawn`
-  - polls readiness with `fetch`
-  - captures `pageerror` and `console` events
-  - all in `tests/playwright-burst.test.js`.
+## Mocking
+
+**Framework:**
+- No Jest/Vitest/Sinon mocking framework is used.
+- No `mock`, `spyOn`, or module-stub APIs appear in current tests.
+
+**Patterns:**
+```javascript
+// Controlled inputs instead of framework mocks
+const snapshot = buildDeterministicSnapshot({
+  state: buildMockState(),
+  keyboardDown: new Set(["KeyW", "KeyF"]),
+  pressedThisStep: new Set(["Space"]),
+  sortedKeysFn: (keys) => Array.from(keys).sort((a, b) => a.localeCompare(b)),
+});
+```
+
+**What to Mock:**
+- Browser capabilities are controlled at runtime boundaries (for example disabling WebGL via `page.addInitScript`) in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js\``.
+- External process boundaries are isolated by spawning and tearing down a dedicated Vite server in the same file.
+
+**What NOT to Mock:**
+- Pure rule logic in `\`/Users/zhangjinhui/Desktop/gsd-demo/src/control-rules.js\`` and `\`/Users/zhangjinhui/Desktop/gsd-demo/src/feedback-rules.js\``.
+- Deterministic snapshot composition in `\`/Users/zhangjinhui/Desktop/gsd-demo/src/determinism-harness.js\``.
 
 ## Fixtures and Factories
 
-- No shared fixture directory exists (no `tests/fixtures/` or `tests/factories/`).
-- Fixtures are local to each test file:
-  - `buildMockState()` in `tests/determinism-contract.test.js`.
-  - inline constants and setup objects in `tests/control-rules.test.js` and `tests/feedback-rules.test.js`.
-- Playwright harness persists runtime artifacts to disk for inspection:
-  - `.planning/artifacts/phase-05/burst-latest.png`
-  - `.planning/artifacts/phase-05/burst-latest.json`
-  - `.planning/artifacts/phase-05/burst-console.json`
-  - paths defined in `tests/playwright-burst.test.js`.
+**Test Data:**
+```javascript
+function buildMockState() {
+  return {
+    mode: "playing",
+    randomSeed: 5745092,
+    // deterministic fields...
+  };
+}
+```
 
-## Coverage Strategy
+**Location:**
+- Fixtures are file-local; no shared `fixtures/` directory exists under `\`/Users/zhangjinhui/Desktop/gsd-demo/tests\``.
+- Runtime artifacts are written for inspection to:
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/.planning/artifacts/phase-05/burst-latest.png\``
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/.planning/artifacts/phase-05/burst-latest.json\``
+- `\`/Users/zhangjinhui/Desktop/gsd-demo/.planning/artifacts/phase-05/burst-console.json\``
 
-- No automated coverage tool/threshold is configured (`package.json` has no coverage script; no `c8`/`nyc` config).
-- Practical strategy is risk-based by test type:
-  - Unit rules coverage for control and feedback logic (`tests/control-rules.test.js`, `tests/feedback-rules.test.js`).
-  - Contract coverage for deterministic snapshot and stepping API (`tests/determinism-contract.test.js`).
-  - Runtime smoke coverage for integration path and browser errors (`tests/playwright-burst.test.js`).
-- Critical invariants currently emphasized:
-  - deterministic step conversion and snapshot schema stability (`tests/determinism-contract.test.js`)
-  - low-HP danger/chain threshold behavior (`tests/feedback-rules.test.js`)
-  - focus/pause/fullscreen control transitions (`tests/control-rules.test.js`)
-  - start-to-running transition and console/page error absence (`tests/playwright-burst.test.js`).
+## Coverage
 
-## Test Types In Use
+**Requirements:**
+- No numeric coverage threshold is currently enforced.
+- De facto quality goal is invariant coverage:
+- control transitions (`\`/Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js\``)
+- feedback thresholds (`\`/Users/zhangjinhui/Desktop/gsd-demo/tests/feedback-rules.test.js\``)
+- deterministic schema and repeatability (`\`/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js\``)
+- runtime smoke and error absence (`\`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js\``)
 
-- **Unit tests:** `tests/control-rules.test.js`, `tests/feedback-rules.test.js`.
-- **Contract tests:** `tests/determinism-contract.test.js` for deterministic data shape and repeatability guarantees.
-- **E2E-like smoke tests:** `tests/playwright-burst.test.js` (real browser + real dev server).
-- Snapshot file comparison tooling is not used; assertions are value-level and explicit.
+**Configuration:**
+- No `c8`/`nyc` or built-in coverage script exists in `\`/Users/zhangjinhui/Desktop/gsd-demo/package.json\``.
+- Quality implication: regression detection depends on assertion quality and scenario breadth rather than coverage gates.
 
-## Practical Notes for New Tests
+**View Coverage:**
+```bash
+# Not configured in /Users/zhangjinhui/Desktop/gsd-demo/package.json
+# Add a coverage command before expecting percentage reports.
+```
 
-- Prefer `node:test` + `node:assert/strict` for new pure logic tests to match existing files under `tests/`.
-- For runtime flows requiring DOM/render loop validation, follow the existing Playwright script approach in `tests/playwright-burst.test.js`.
-- Keep tests deterministic by avoiding wall-clock randomness and by using controlled seeds/state (pattern from `tests/determinism-contract.test.js`).
+## Test Types
+
+**Unit Tests:**
+- Scope: single-purpose rule functions in `\`/Users/zhangjinhui/Desktop/gsd-demo/src/control-rules.js\`` and `\`/Users/zhangjinhui/Desktop/gsd-demo/src/feedback-rules.js\``.
+- Mocking: none; direct data input/output assertions.
+
+**Integration/Contract Tests:**
+- Scope: deterministic snapshot and step conversion invariants in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js\``.
+- Strategy: uses realistic nested state objects and strict deep equality.
+
+**E2E-like Smoke Tests:**
+- Framework: Playwright + real Vite dev server.
+- Scope: start flow, deterministic progression, and runtime error channels in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js\``.
+
+## Common Patterns
+
+**Async Testing:**
+```javascript
+test("async behavior", async () => {
+  await waitForServer("http://127.0.0.1:4174");
+  assert.ok(true);
+});
+```
+
+**Error Testing:**
+```javascript
+if (typeof state.schemaVersion !== "string") {
+  throw new Error("State payload is missing schemaVersion.");
+}
+```
+
+**Snapshot Testing:**
+- Snapshot file diff tooling is not used.
+- Equivalent confidence is achieved with explicit shape/value assertions and deterministic JSON equality in `\`/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js\``.
 
 ---
 
 *Testing analysis: 2026-03-05*
-*Update when test commands, framework, or coverage policy changes*
+*Update when framework, commands, or quality gates change*

@@ -2,78 +2,75 @@
 
 **Analysis Date:** 2026-03-05
 
-## 扫描范围
-- 游戏应用运行代码：`index.html`、`src/main.js`、`src/control-rules.js`、`src/feedback-rules.js`、`src/determinism-harness.js`、`src/style.css`
-- 自动化与回归测试：`tests/control-rules.test.js`、`tests/feedback-rules.test.js`、`tests/determinism-contract.test.js`、`tests/playwright-burst.test.js`
-- 仓库内置工程化 CLI（GSD）：`.codex/get-shit-done/bin/gsd-tools.cjs`、`.codex/get-shit-done/bin/lib/*.cjs`、`.codex/config.toml`、`.planning/config.json`
+## Languages
 
-## 语言与模块系统
+**Primary:**
+- JavaScript (ES Modules) - Main gameplay runtime and domain logic in `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/control-rules.js`, `/Users/zhangjinhui/Desktop/gsd-demo/src/feedback-rules.js`, and `/Users/zhangjinhui/Desktop/gsd-demo/src/determinism-harness.js`.
 
-### Primary
-- JavaScript (ESM) 是主业务与测试语言：`package.json`（`"type": "module"`）、`src/main.js`、`tests/*.test.js`
+**Secondary:**
+- HTML5 - Browser entry document in `/Users/zhangjinhui/Desktop/gsd-demo/index.html`.
+- CSS3 - Visual styling and HUD/overlay effects in `/Users/zhangjinhui/Desktop/gsd-demo/src/style.css`.
+- JavaScript (Node-side test scripts) - Automated validation in `/Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/feedback-rules.test.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js`, and `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`.
 
-### Secondary
-- JavaScript (CommonJS) 用于仓库内置 CLI 工具链：`.codex/get-shit-done/bin/gsd-tools.cjs`、`.codex/get-shit-done/bin/lib/commands.cjs` 等
-- HTML 用于页面入口与结构：`index.html`
-- CSS 用于样式系统：`src/style.css`
+## Runtime
 
-### 未发现
-- 未发现 TypeScript/Rust/Go/Python 运行时项目清单（缺失 `tsconfig*.json`、`Cargo.toml`、`go.mod`、`pyproject.toml`）
+**Environment:**
+- Browser runtime with WebGL-capable rendering (with noop fallback path for deterministic tests) in `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`.
+- Node.js runtime for dev server, build, preview, and test execution declared in `/Users/zhangjinhui/Desktop/gsd-demo/package.json`.
+- Node compatibility floor is constrained by dependency engines recorded in `/Users/zhangjinhui/Desktop/gsd-demo/package-lock.json` (notably `node_modules/vite` and `node_modules/playwright`).
 
-## 运行时与执行环境
+**Package Manager:**
+- npm - Script orchestration defined in `/Users/zhangjinhui/Desktop/gsd-demo/package.json`.
+- Lockfile: `/Users/zhangjinhui/Desktop/gsd-demo/package-lock.json` present (lockfileVersion 3).
 
-### Browser Runtime（游戏本体）
-- 浏览器模块入口：`index.html` -> `src/main.js`
-- 图形运行依赖 WebGL（带降级）：`src/main.js`（`THREE.WebGLRenderer`，并在异常/测试标志下 fallback 到 `noop` renderer）
-- 使用浏览器能力：Fullscreen API 与窗口焦点/可见性事件，见 `src/main.js`
+## Frameworks
 
-### Node.js Runtime（开发/测试/工具）
-- `npm run dev/build/preview` 驱动 Vite：`package.json`
-- Node 原生测试运行器 `node:test`：`tests/control-rules.test.js`、`tests/determinism-contract.test.js`
-- Playwright 冒烟脚本由 Node 直接执行：`package.json`（`test:burst`）、`tests/playwright-burst.test.js`
-- 仓库内 GSD CLI 通过 `#!/usr/bin/env node` 运行：`.codex/get-shit-done/bin/gsd-tools.cjs`
+**Core:**
+- Three.js `^0.183.2` - Real-time scene graph, rendering, and gameplay visuals (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`).
+- Vanilla browser APIs - Input, focus, visibility, and fullscreen lifecycle (`/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`).
 
-### Node 版本约束（来自锁文件解析）
-- `vite@7.3.1` 要求 Node `^20.19.0 || >=22.12.0`：`package-lock.json`（`node_modules/vite.engines.node`）
-- `playwright@1.58.2` 要求 Node `>=18`：`package-lock.json`（`node_modules/playwright.engines.node`）
-- `rollup@4.59.0` 要求 Node `>=18.0.0`：`package-lock.json`（`node_modules/rollup.engines.node`）
+**Testing:**
+- Node built-in test runner (`node:test`) - Logic and contract tests (`/Users/zhangjinhui/Desktop/gsd-demo/tests/control-rules.test.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/feedback-rules.test.js`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/determinism-contract.test.js`).
+- Playwright `^1.58.2` - Browser burst regression and screenshot/state artifact checks (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`).
 
-## 包管理与依赖
+**Build/Dev:**
+- Vite `^7.3.1` - Local dev server and production build pipeline (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`).
+- Rollup and esbuild (transitive via Vite) - Bundling and transform infrastructure (`/Users/zhangjinhui/Desktop/gsd-demo/package-lock.json`, `node_modules/vite`, `node_modules/rollup`).
 
-### 包管理
-- npm（存在 `package-lock.json`，`lockfileVersion: 3`）：`package-lock.json`
+## Key Dependencies
 
-### 核心依赖（Top-level）
-- `three@^0.183.2`：3D/2.5D 渲染核心，见 `package.json`、`src/main.js`
-- `playwright@^1.58.2`：浏览器自动化与回归，见 `package.json`、`tests/playwright-burst.test.js`
-- `vite@^7.3.1`（devDependency）：本地开发服务器与构建，见 `package.json`
+**Critical:**
+- `three@^0.183.2` - Core render/runtime dependency for the game world (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/src/main.js`).
+- `vite@^7.3.1` - Build and local runtime entry for all application workflows (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`).
+- `playwright@^1.58.2` - Browser automation dependency for deterministic burst verification (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`).
 
-### 关键传递依赖（由构建链引入）
-- `rollup@4.59.0`：Vite 打包底层能力，见 `package-lock.json`
-- `esbuild@0.27.3`：Vite 转译/预构建链路，见 `package-lock.json`
+**Infrastructure:**
+- Node built-ins (`node:fs/promises`, `node:path`, `node:process`, `node:child_process`) - Test orchestration and artifact output (`/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`).
+- Optional repository CLI integration key (`BRAVE_API_KEY`) is consumed by tooling code in `/Users/zhangjinhui/Desktop/gsd-demo/.codex/get-shit-done/bin/lib/commands.cjs`.
 
-### Node Built-ins（大量使用）
-- `node:fs/promises`、`node:path`、`node:process`、`node:child_process`：`tests/playwright-burst.test.js`
-- `fs`、`path`、`child_process`：`.codex/get-shit-done/bin/lib/*.cjs`
+## Configuration
 
-## 构建、运行与测试入口
-- 开发：`npm run dev` -> `vite`（`package.json`）
-- 生产构建：`npm run build` -> `vite build`（`package.json`）
-- 本地预览：`npm run preview` -> `vite preview --host 0.0.0.0 --port 4173`（`package.json`）
-- 确定性测试：`npm run test:determinism` -> `node --test tests/determinism-contract.test.js`（`package.json`）
-- Playwright 冒烟：`npm run test:burst` -> `node tests/playwright-burst.test.js`（`package.json`）
+**Environment:**
+- No application `.env` file is present in the repository root; runtime behavior is primarily code- and script-driven (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/.gitignore`).
+- Test server process flags `CI` and `FORCE_COLOR` are injected in `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`.
+- Optional CLI key `BRAVE_API_KEY` is read in `/Users/zhangjinhui/Desktop/gsd-demo/.codex/get-shit-done/bin/lib/config.cjs` and `/Users/zhangjinhui/Desktop/gsd-demo/.codex/get-shit-done/bin/lib/commands.cjs`.
 
-## 配置面与工程开关
-- Agent/多线程配置：`.codex/config.toml`
-- 规划流程配置（mode、parallelization、workflow flags）：`.planning/config.json`
-- 入口 HTML 直接加载 Google Fonts 与应用脚本：`index.html`
+**Build:**
+- HTML entry and module bootstrapping in `/Users/zhangjinhui/Desktop/gsd-demo/index.html`.
+- Build/dev/preview command declarations in `/Users/zhangjinhui/Desktop/gsd-demo/package.json`.
+- Dependency tree and runtime engine constraints in `/Users/zhangjinhui/Desktop/gsd-demo/package-lock.json`.
 
-## 平台与部署形态
-- 当前仓库是前端静态应用 + 本地 CLI 工具组合：`index.html`、`src/*`、`.codex/get-shit-done/bin/*`
-- 未发现容器与 IaC：缺失 `Dockerfile*`、`docker-compose*.yml`、`*.tf`
-- 未发现 CI 工作流：缺失 `.github/workflows/*.yml`
-- 预期发布形态为静态资源（由 Vite 构建）+ Node 本地开发工具链（`npm` scripts 与 `.cjs` CLI）
+## Platform Requirements
 
-## 补充观察
-- GSD 内置版本为 `1.22.4`：`.codex/get-shit-done/VERSION`
-- 安装清单与文件哈希存在：`.codex/gsd-file-manifest.json`
+**Development:**
+- Any platform that supports Node.js and Chromium execution for Playwright workflows (`/Users/zhangjinhui/Desktop/gsd-demo/package.json`, `/Users/zhangjinhui/Desktop/gsd-demo/tests/playwright-burst.test.js`).
+- Node should satisfy Vite engine requirements from `/Users/zhangjinhui/Desktop/gsd-demo/package-lock.json` (`node: ^20.19.0 || >=22.12.0` under `node_modules/vite`).
+
+**Production:**
+- Static asset hosting target for Vite build output (`dist`) implied by scripts in `/Users/zhangjinhui/Desktop/gsd-demo/package.json`.
+- No server-side runtime, database binding, or container deployment manifest is defined in repository runtime files (`/Users/zhangjinhui/Desktop/gsd-demo/index.html`, `/Users/zhangjinhui/Desktop/gsd-demo/package.json`).
+
+---
+
+*Stack analysis: 2026-03-05*
+*Update after major dependency changes*
