@@ -39,6 +39,10 @@ function createBreakableInstance(sectorId, preset, order) {
     order,
     sectorId,
     archetypeId: archetype.id,
+    dropTableId:
+      typeof preset.dropTableId === "string" && preset.dropTableId.length > 0
+        ? preset.dropTableId
+        : archetype.id,
     blocksMovement: Boolean(archetype.blocksMovement),
     rotationQuarterTurns: normalizeQuarterTurns(preset.rotationQuarterTurns),
     x: Number(toFiniteNumber(preset.x, 0).toFixed(3)),

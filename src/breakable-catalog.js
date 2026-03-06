@@ -53,6 +53,7 @@ export const BREAKABLE_LAYOUT_PRESETS = freezeDeep({
     {
       id: "hub-crate-01",
       archetypeId: "crate",
+      dropTableId: "starter-weapon",
       x: 2.8,
       y: -0.6,
       rotationQuarterTurns: 0,
@@ -60,6 +61,7 @@ export const BREAKABLE_LAYOUT_PRESETS = freezeDeep({
     {
       id: "hub-cache-01",
       archetypeId: "cache",
+      dropTableId: "upgrade-weapon",
       x: 5.1,
       y: 1.2,
       rotationQuarterTurns: 0,
@@ -69,6 +71,7 @@ export const BREAKABLE_LAYOUT_PRESETS = freezeDeep({
     {
       id: "north-cache-01",
       archetypeId: "cache",
+      dropTableId: "defense-core",
       x: -1.8,
       y: -11.9,
       rotationQuarterTurns: 0,
@@ -78,6 +81,7 @@ export const BREAKABLE_LAYOUT_PRESETS = freezeDeep({
     {
       id: "east-crate-01",
       archetypeId: "crate",
+      dropTableId: "mobility-charm",
       x: 13.6,
       y: -2.1,
       rotationQuarterTurns: 0,
@@ -87,6 +91,7 @@ export const BREAKABLE_LAYOUT_PRESETS = freezeDeep({
     {
       id: "south-cache-01",
       archetypeId: "cache",
+      dropTableId: "upgrade-weapon",
       x: -2.4,
       y: 12.5,
       rotationQuarterTurns: 0,
