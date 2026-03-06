@@ -19,8 +19,8 @@ created: 2026-03-06
 |----------|-------|
 | **Framework** | `node:test` + Playwright |
 | **Config file** | none — Node built-in test runner + local browser scripts |
-| **Quick run command** | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js || echo 'W0 pending: tests/levelup-system.test.js missing'` |
-| **Full suite command** | `test -f tests/levelup-system.test.js && test -f tests/playwright-levelup-choice.test.js && npm run build && node --test tests/world-sectors.test.js tests/building-system.test.js tests/building-tactics.test.js tests/building-steering.test.js tests/breakable-system.test.js tests/drop-system.test.js tests/equipment-system.test.js tests/progression-system.test.js tests/levelup-system.test.js tests/determinism-contract.test.js && node tests/playwright-breakables-loot.test.js && node tests/playwright-progression-levels.test.js && node tests/playwright-levelup-choice.test.js || echo 'W0 pending: levelup tests missing'` |
+| **Quick run command** | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js` |
+| **Full suite command** | `test -f tests/levelup-system.test.js && test -f tests/playwright-levelup-choice.test.js && npm run build && node --test tests/world-sectors.test.js tests/building-system.test.js tests/building-tactics.test.js tests/building-steering.test.js tests/breakable-system.test.js tests/drop-system.test.js tests/equipment-system.test.js tests/progression-system.test.js tests/levelup-system.test.js tests/determinism-contract.test.js && node tests/playwright-breakables-loot.test.js && node tests/playwright-progression-levels.test.js && node tests/playwright-levelup-choice.test.js` |
 | **Estimated runtime** | ~180 seconds |
 
 ---
@@ -38,14 +38,14 @@ created: 2026-03-06
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 10-01-01 | 01 | 1 | TAL-03 | unit | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js || echo 'W0 pending: tests/levelup-system.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-01-02 | 01 | 1 | TAL-03, TAL-04 | unit + build | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js && npm run build || echo 'W0 pending: tests/levelup-system.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-02-01 | 02 | 2 | TAL-01 | integration | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js || echo 'W0 pending: tests/levelup-system.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-02-02 | 02 | 2 | TAL-01, TAL-02 | integration + build | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js && npm run build || echo 'W0 pending: tests/levelup-system.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-03-01 | 03 | 3 | TAL-05 | contract | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js tests/determinism-contract.test.js || echo 'W0 pending: tests/levelup-system.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-03-02 | 03 | 3 | TAL-05 | contract + build | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js tests/determinism-contract.test.js && npm run build || echo 'W0 pending: tests/levelup-system.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-04-01 | 04 | 4 | TAL-06 | e2e | `test -f tests/playwright-levelup-choice.test.js && node tests/playwright-levelup-choice.test.js || echo 'W0 pending: tests/playwright-levelup-choice.test.js missing'` | ❌ W0 | ⬜ pending |
-| 10-04-02 | 04 | 4 | TAL-01, TAL-02, TAL-03, TAL-04, TAL-05, TAL-06 | phase regression gate | `test -f tests/levelup-system.test.js && test -f tests/playwright-levelup-choice.test.js && npm run build && node --test tests/world-sectors.test.js tests/building-system.test.js tests/building-tactics.test.js tests/building-steering.test.js tests/breakable-system.test.js tests/drop-system.test.js tests/equipment-system.test.js tests/progression-system.test.js tests/levelup-system.test.js tests/determinism-contract.test.js && node tests/playwright-breakables-loot.test.js && node tests/playwright-progression-levels.test.js && node tests/playwright-levelup-choice.test.js || echo 'W0 pending: levelup tests missing'` | ❌ W0 | ⬜ pending |
+| 10-01-01 | 01 | 1 | TAL-03 | unit | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js` | ❌ W0 | ⬜ pending |
+| 10-01-02 | 01 | 1 | TAL-03, TAL-04 | unit + build | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js && npm run build` | ❌ W0 | ⬜ pending |
+| 10-02-01 | 02 | 2 | TAL-01 | integration | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js` | ❌ W0 | ⬜ pending |
+| 10-02-02 | 02 | 2 | TAL-01, TAL-02 | integration + build | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js && npm run build` | ❌ W0 | ⬜ pending |
+| 10-03-01 | 03 | 3 | TAL-05 | contract | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js tests/determinism-contract.test.js` | ❌ W0 | ⬜ pending |
+| 10-03-02 | 03 | 3 | TAL-05 | contract + build | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js tests/determinism-contract.test.js && npm run build` | ❌ W0 | ⬜ pending |
+| 10-04-01 | 04 | 4 | TAL-06 | contract | `test -f tests/levelup-system.test.js && node --test tests/levelup-system.test.js tests/determinism-contract.test.js` | ❌ W0 | ⬜ pending |
+| 10-04-02 | 04 | 4 | TAL-01, TAL-02, TAL-03, TAL-04, TAL-05, TAL-06 | phase regression gate | `test -f tests/levelup-system.test.js && test -f tests/playwright-levelup-choice.test.js && npm run build && node --test tests/world-sectors.test.js tests/building-system.test.js tests/building-tactics.test.js tests/building-steering.test.js tests/breakable-system.test.js tests/drop-system.test.js tests/equipment-system.test.js tests/progression-system.test.js tests/levelup-system.test.js tests/determinism-contract.test.js && node tests/playwright-breakables-loot.test.js && node tests/playwright-progression-levels.test.js && node tests/playwright-levelup-choice.test.js` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
