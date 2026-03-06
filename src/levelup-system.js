@@ -156,6 +156,13 @@ function createOfferId(eventId, offerSeq) {
   return `${eventId}-offer-${String(offerSeq).padStart(4, "0")}`;
 }
 
+function normalizeModifierSummary(modifiers = null) {
+  return {
+    ...buildEmptyModifiers(),
+    ...(modifiers && typeof modifiers === "object" ? modifiers : {}),
+  };
+}
+
 export function createOfferSeed(seed) {
   return (Math.floor(toFiniteNumber(seed, 0)) ^ OFFER_RNG_SEED_SALT) >>> 0;
 }
@@ -199,6 +206,40 @@ export function createLevelUpState({
     rerollsRemaining: Math.max(0, Math.floor(toFiniteNumber(rerollsRemaining, 0))),
     offerSeq: Math.max(0, Math.floor(toFiniteNumber(offerSeq, 0))),
     offerRngState: Math.floor(toFiniteNumber(offerRngState, 0)) >>> 0,
+  };
+}
+
+export function summarizeLevelUpStateForSnapshot(levelUpState = createLevelUpState()) {
+  const normalized = createLevelUpState(levelUpState);
+  return {
+    activeEventId: normalized.activeEventId,
+    currentOfferId: normalized.currentOfferId,
+    offeredChoices: normalized.offeredChoices.map((choice) => ({
+      id: choice.id,
+      kind: choice.kind,
+      nextRank: choice.nextRank,
+      maxRank: choice.maxRank,
+      effect: {
+        kind: choice.effect.kind,
+        amount: toFiniteNumber(choice.effect.amount, 0),
+      },
+    })),
+    selectedIndex: normalized.selectedIndex,
+    rerollsRemaining: normalized.rerollsRemaining,
+    offerSeq: normalized.offerSeq,
+    offerRngState: normalized.offerRngState,
+  };
+}
+
+export function summarizeUpgradeStateForSnapshot(upgradeState = createUpgradeState()) {
+  const normalized = createUpgradeState(upgradeState);
+  return {
+    appliedChoices: normalized.appliedChoices.map((choice) => ({
+      id: choice.id,
+      kind: choice.kind,
+    })),
+    skillModifiers: normalizeModifierSummary(normalized.skillModifiers),
+    talentModifiers: normalizeModifierSummary(normalized.talentModifiers),
   };
 }
 

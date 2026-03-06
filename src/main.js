@@ -677,16 +677,62 @@ function nextSpawnRngValue() {
   return nextState / 0x100000000;
 }
 
+function getUpgradeModifierTotals() {
+  const skillModifiers = state.upgrades?.skillModifiers ?? {};
+  const talentModifiers = state.upgrades?.talentModifiers ?? {};
+  return {
+    attackDamage: (skillModifiers.attackDamage ?? 0) + (talentModifiers.attackDamage ?? 0),
+    maxHp: (skillModifiers.maxHp ?? 0) + (talentModifiers.maxHp ?? 0),
+    moveSpeed: (skillModifiers.moveSpeed ?? 0) + (talentModifiers.moveSpeed ?? 0),
+    attackRadius: (skillModifiers.attackRadius ?? 0) + (talentModifiers.attackRadius ?? 0),
+    attackArc: (skillModifiers.attackArc ?? 0) + (talentModifiers.attackArc ?? 0),
+    attackCooldown:
+      (skillModifiers.attackCooldown ?? 0) + (talentModifiers.attackCooldown ?? 0),
+  };
+}
+
 function getEffectiveAttackDamage() {
-  return PLAYER_ATTACK_DAMAGE + (state.equipment?.derivedStats?.attackDamage ?? 0);
+  return (
+    PLAYER_ATTACK_DAMAGE +
+    (state.equipment?.derivedStats?.attackDamage ?? 0) +
+    getUpgradeModifierTotals().attackDamage
+  );
 }
 
 function getEffectiveMaxHp() {
-  return PLAYER_MAX_HP + (state.equipment?.derivedStats?.maxHp ?? 0);
+  return (
+    PLAYER_MAX_HP +
+    (state.equipment?.derivedStats?.maxHp ?? 0) +
+    getUpgradeModifierTotals().maxHp
+  );
 }
 
 function getEffectiveMoveSpeed() {
-  return PLAYER_BASE_SPEED + (state.equipment?.derivedStats?.moveSpeed ?? 0);
+  return (
+    PLAYER_BASE_SPEED +
+    (state.equipment?.derivedStats?.moveSpeed ?? 0) +
+    getUpgradeModifierTotals().moveSpeed
+  );
+}
+
+function getEffectiveAttackRadius() {
+  return PLAYER_ATTACK_RADIUS + getUpgradeModifierTotals().attackRadius;
+}
+
+function getEffectiveAttackCooldown() {
+  return Math.max(0.08, PLAYER_ATTACK_COOLDOWN + getUpgradeModifierTotals().attackCooldown);
+}
+
+function getEffectiveAttackSweepAngle() {
+  return Math.max(0.96, 1.44 + getUpgradeModifierTotals().attackArc);
+}
+
+function getEffectiveFrontDotThreshold() {
+  return clamp(
+    PLAYER_ATTACK_FRONT_DOT_THRESHOLD - getUpgradeModifierTotals().attackArc * 0.6,
+    -0.95,
+    0.95,
+  );
 }
 
 function formatStatValue(statKey, value) {
@@ -2091,6 +2137,7 @@ function handleLevelUpChoiceInput() {
     state.upgrades = confirmed.upgradeState;
     state.levelUp = confirmed.levelUpState;
     state.mode = "playing";
+    state.player.hp = Math.min(state.player.hp, getEffectiveMaxHp());
     clearInputState();
     setCenterBanner(
       confirmed.chosenChoice ? `SELECTED ${confirmed.chosenChoice.label}` : "UPGRADE SELECTED",
@@ -2141,10 +2188,19 @@ function doAttack() {
     return;
   }
 
-  state.player.attackCooldown = PLAYER_ATTACK_COOLDOWN;
+  const attackCooldown = getEffectiveAttackCooldown();
+  const attackRadius = getEffectiveAttackRadius();
+  const attackSweepAngle = getEffectiveAttackSweepAngle();
+  const frontDotThreshold = getEffectiveFrontDotThreshold();
+  state.player.attackCooldown = attackCooldown;
   const angle = Math.atan2(state.player.facingY, state.player.facingX);
 
-  const slashGeometry = new THREE.CircleGeometry(PLAYER_ATTACK_RADIUS + 0.25, 28, angle - 0.72, 1.44);
+  const slashGeometry = new THREE.CircleGeometry(
+    attackRadius + 0.25,
+    28,
+    angle - attackSweepAngle / 2,
+    attackSweepAngle,
+  );
   const slashMaterial = new THREE.MeshBasicMaterial({
     color: 0xff7b3b,
     transparent: true,
@@ -2173,14 +2229,14 @@ function doAttack() {
     const dx = enemy.x - state.player.x;
     const dy = enemy.y - state.player.y;
     const distance = Math.hypot(dx, dy);
-    if (distance > PLAYER_ATTACK_RADIUS + enemy.radius) {
+    if (distance > attackRadius + enemy.radius) {
       continue;
     }
 
     const nx = distance > 0 ? dx / distance : 0;
     const ny = distance > 0 ? dy / distance : 0;
     const frontDot = nx * state.player.facingX + ny * state.player.facingY;
-    if (frontDot < PLAYER_ATTACK_FRONT_DOT_THRESHOLD) {
+    if (frontDot < frontDotThreshold) {
       continue;
     }
 
@@ -2193,9 +2249,9 @@ function doAttack() {
     breakables: state.world?.breakables || [],
     attackOrigin: { x: state.player.x, y: state.player.y },
     attackFacing: { x: state.player.facingX, y: state.player.facingY },
-    attackRadius: PLAYER_ATTACK_RADIUS,
+    attackRadius,
     attackDamage: getEffectiveAttackDamage(),
-    frontDotThreshold: PLAYER_ATTACK_FRONT_DOT_THRESHOLD,
+    frontDotThreshold,
   });
   state.world = {
     ...(state.world || {}),
@@ -2386,6 +2442,14 @@ function updateHud() {
   const gearText = state.equipment?.derivedStats
     ? `Gear ATK+${formatStatValue("attackDamage", state.equipment.derivedStats.attackDamage)} HP+${formatStatValue("maxHp", state.equipment.derivedStats.maxHp)} SPD+${formatStatValue("moveSpeed", state.equipment.derivedStats.moveSpeed)}`
     : "Gear ATK+0 HP+0 SPD+0";
+  const upgradeModifiers = getUpgradeModifierTotals();
+  const upgradeText =
+    `Upg ATK+${formatStatValue("attackDamage", upgradeModifiers.attackDamage)} ` +
+    `HP+${formatStatValue("maxHp", upgradeModifiers.maxHp)} ` +
+    `SPD+${formatStatValue("moveSpeed", upgradeModifiers.moveSpeed)} ` +
+    `R+${Number(upgradeModifiers.attackRadius.toFixed(2))} ` +
+    `A+${Number(upgradeModifiers.attackArc.toFixed(2))} ` +
+    `CD${Number(upgradeModifiers.attackCooldown.toFixed(2))}`;
   const readability = state.world?.readability || buildWorldReadabilityState();
   const tactics = state.world?.tactics || buildWorldTacticsState({
     currentSectorId: state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0],
@@ -2428,6 +2492,7 @@ function updateHud() {
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
     `${gearText}\n` +
+    `${upgradeText}\n` +
     `Sector ${readability.sectorLabel}  Pressure ${readability.pressureLabel}\n` +
     `Tactic ${tactics.cueLabel}  B${tacticCounts.blocker ?? 0} F${tacticCounts.funnel ?? 0} S${tacticCounts["soft-cover"] ?? 0}\n` +
     `${modeText}  ${focusText}  ${fullscreenText}\n` +

@@ -190,6 +190,65 @@ function buildMockState() {
         statDelta: 3,
       },
     },
+    levelUp: {
+      activeEventId: "lvlup-0002",
+      currentOfferId: "lvlup-0002-offer-0001",
+      offeredChoices: [
+        {
+          id: "edge_control",
+          kind: "skill",
+          label: "Edge Control",
+          description: "Extend slash reach slightly.",
+          nextRank: 1,
+          maxRank: 1,
+          effect: { kind: "attackRadius", amount: 0.22 },
+        },
+        {
+          id: "heavy_hand",
+          kind: "talent",
+          label: "Heavy Hand",
+          description: "Increase attack damage.",
+          nextRank: 1,
+          maxRank: 3,
+          effect: { kind: "attackDamage", amount: 2 },
+        },
+        {
+          id: "swift_step",
+          kind: "talent",
+          label: "Swift Step",
+          description: "Increase movement speed.",
+          nextRank: 1,
+          maxRank: 2,
+          effect: { kind: "moveSpeed", amount: 0.35 },
+        },
+      ],
+      selectedIndex: 2,
+      rerollsRemaining: 1,
+      offerSeq: 1,
+      offerRngState: 2712847316,
+    },
+    upgrades: {
+      appliedChoices: [
+        { id: "wide_slash", kind: "skill" },
+        { id: "heavy_hand", kind: "talent" },
+      ],
+      skillModifiers: {
+        attackDamage: 0,
+        maxHp: 0,
+        moveSpeed: 0,
+        attackRadius: 0,
+        attackArc: 0.18,
+        attackCooldown: 0,
+      },
+      talentModifiers: {
+        attackDamage: 2,
+        maxHp: 0,
+        moveSpeed: 0,
+        attackRadius: 0,
+        attackArc: 0,
+        attackCooldown: 0,
+      },
+    },
     progression: {
       level: 3,
       totalXp: 13,
@@ -260,7 +319,7 @@ test("snapshot includes stable schema/version and required sections", () => {
     manualSteppingMode: false,
   });
 
-  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.2.0");
+  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.3.0");
   assert.equal(snapshot.schemaVersion, DETERMINISM_SCHEMA_VERSION);
   assert.equal(typeof snapshot.determinism.fixedStepSeconds, "number");
   assert.equal(typeof snapshot.determinism.lastAdvanceSteps, "number");
@@ -326,6 +385,59 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(snapshot.equipmentState.slots.weapon.id, "drop-0001-hub-crate-01");
   assert.equal(snapshot.equipmentState.compareCandidate.slot, "weapon");
   assert.equal(snapshot.equipmentState.compareCandidate.statDelta, 3);
+  assert.deepEqual(snapshot.levelUpState, {
+    activeEventId: "lvlup-0002",
+    currentOfferId: "lvlup-0002-offer-0001",
+    offeredChoices: [
+      {
+        id: "edge_control",
+        kind: "skill",
+        nextRank: 1,
+        maxRank: 1,
+        effect: { kind: "attackRadius", amount: 0.22 },
+      },
+      {
+        id: "heavy_hand",
+        kind: "talent",
+        nextRank: 1,
+        maxRank: 3,
+        effect: { kind: "attackDamage", amount: 2 },
+      },
+      {
+        id: "swift_step",
+        kind: "talent",
+        nextRank: 1,
+        maxRank: 2,
+        effect: { kind: "moveSpeed", amount: 0.35 },
+      },
+    ],
+    selectedIndex: 2,
+    rerollsRemaining: 1,
+    offerSeq: 1,
+    offerRngState: 2712847316,
+  });
+  assert.deepEqual(snapshot.upgradeState, {
+    appliedChoices: [
+      { id: "wide_slash", kind: "skill" },
+      { id: "heavy_hand", kind: "talent" },
+    ],
+    skillModifiers: {
+      attackDamage: 0,
+      maxHp: 0,
+      moveSpeed: 0,
+      attackRadius: 0,
+      attackArc: 0.18,
+      attackCooldown: 0,
+    },
+    talentModifiers: {
+      attackDamage: 2,
+      maxHp: 0,
+      moveSpeed: 0,
+      attackRadius: 0,
+      attackArc: 0,
+      attackCooldown: 0,
+    },
+  });
   assert.deepEqual(snapshot.progressionState, {
     level: 3,
     totalXp: 13,
