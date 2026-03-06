@@ -77,6 +77,15 @@ created: 2026-03-06
 
 ---
 
+## Snapshot Contract Checks
+
+- `levelUpState` must expose `activeEventId`, `currentOfferId`, `offeredChoices`, `selectedIndex`, `rerollsRemaining`, `offerSeq`, and `offerRngState`.
+- `upgradeState` must expose `appliedChoices`, `skillModifiers`, and `talentModifiers`.
+- `10-02` verification must assert `equip_compare > levelup_choice > playing`, `KeyP` ignored in `levelup_choice`, and `Escape` does not dismiss the panel.
+- `10-04` verification must assert that each level-up event permits exactly one reroll and that additional reroll attempts are deterministic no-ops.
+
+---
+
 ## Validation Sign-Off
 
 - [x] All tasks have `<automated>` verify or Wave 0 dependencies
@@ -87,4 +96,3 @@ created: 2026-03-06
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
-

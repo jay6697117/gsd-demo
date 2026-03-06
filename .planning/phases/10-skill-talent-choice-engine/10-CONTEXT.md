@@ -29,14 +29,15 @@
 - choice pool 同时支持 `skill` 和 `talent` 两类项。
 - offer 生成必须使用独立 `offerRngState`，不能复用 spawn / drop / progression RNG。
 - offer 生成必须保证：无重复、满足 eligibility、满足 exclusion / max-rank / pool 约束。
-- reroll 属于本阶段范围，默认每个 level-up event 至少有 `1` 次 deterministic reroll 机会。
+- reroll 属于本阶段范围，并固定为**每个 level-up event 恰好 `1` 次 deterministic reroll**。
 
 ### Input Semantics
 - `ArrowLeft` / `KeyA`：选择左侧选项
 - `ArrowRight` / `KeyD`：选择右侧选项
 - `Enter` / `Space`：确认当前选项
-- `KeyR`：reroll 当前 offer（如果剩余次数 > 0）
-- `Escape` 不用于退出 level-up panel；全屏退出仍保持原有语义
+- `KeyR`：对当前 event 的当前 offer 执行一次 reroll；每个 event 只能成功执行一次
+- `KeyP`：在 `levelup_choice` 下忽略，不切换到 `paused`
+- `Escape` 不用于退出 level-up panel；只保留全屏退出语义
 
 ### Upgrade Model
 - `skill`：主动战斗形态修饰，例如 attack radius / attack arc / cooldown behavior 等
@@ -55,7 +56,7 @@
 ### Claude's Discretion
 - 初始 skill / talent catalog 的具体命名和数值，只要能稳定提供 3 个合法选项并立即影响战斗即可
 - 选择面板的视觉布局、文案措辞和焦点高亮样式
-- reroll 的默认次数和 UI 展示形式，只要 deterministic 且可断言即可
+- reroll 的 UI 展示形式，只要能明确表达“每事件恰好一次”且 deterministic 即可
 
 </decisions>
 

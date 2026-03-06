@@ -130,6 +130,7 @@
 - Option generation supports both skill and talent pools with eligibility/exclusion rules.
 - Invalid or duplicate options are removed from each offer set before display.
 - Applied upgrade effects are immediately measurable in combat state.
+- Every level-up event permits exactly one deterministic reroll while preserving 3 valid unique offers and isolated offer RNG behavior.
 
 ## Phase 11: Automation & Determinism Hardening
 

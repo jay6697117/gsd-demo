@@ -20,7 +20,8 @@
 - `pendingLevelUps` 是唯一升级事件来源
 - `offerRngState` 独立于 spawn / drop / progression RNG
 - 选择面板一次只消费一个 pending event
-- `Escape` 不关闭 level-up panel；`Enter` / `Space` 负责确认；`R` 负责 reroll
+- 每个 level-up event 恰好允许 `1` 次 deterministic reroll
+- `Escape` 不关闭 level-up panel；`Enter` / `Space` 负责确认；`R` 负责 reroll；`P` 在面板内忽略
 
 ### Phase Boundary
 - 本阶段交付 choice engine，不再改 XP 阈值、掉落系统、地图系统
@@ -57,10 +58,10 @@ Phase 09 已经把 Phase 10 最关键的前置准备好了：`pendingLevelUps` �
 - 风险：如果不定义优先级，升级与装备替换会出现输入语义冲突
 - 规划含义：Phase 10 需要写死 precedence：已进入 `equip_compare` 时先完成 compare；新进入 `levelup_choice` 后阻止新的 auto pickup/compare
 
-### 3) choice engine 需要独立 RNG，否则 reroll 不可解释
+### 3) choice engine 需要独立 RNG，否则单次 reroll 也不可解释
 - 现状：spawn、loot、progression 都已经分离出独立随机流
 - 风险：如果 Phase 10 复用现有随机流，reroll 会污染怪物生成或掉落 determinism
-- 规划含义：需要单独的 `offerRngState` 和 `offerSeq`
+- 规划含义：需要单独的 `offerRngState` 和 `offerSeq`，并把 reroll 收敛为每个 event 恰好一次
 
 ### 4) `TAL-03` / `TAL-04` 是纯规则问题，应该先于 UI
 - 现状：一旦面板 UI 先落地，后面再修 pool/duplicate/filtering 会反复返工浏览器脚本
@@ -236,7 +237,7 @@ Phase 09 已经把 Phase 10 最关键的前置准备好了：`pendingLevelUps` �
 - `tests/determinism-contract.test.js`
 
 **Implementation hints:**
-1. 加入 deterministic reroll 与剩余次数管理
+1. 加入 deterministic single-use reroll 与一次性预算管理
 2. 浏览器路线验证 `kill -> levelup_choice -> reroll(optional) -> confirm -> combat effect`
 3. full regression 继续覆盖 Phase 06/07/08/09
 
@@ -294,4 +295,3 @@ None.
 - `src/determinism-harness.js`
 - `tests/determinism-contract.test.js`
 - `tests/playwright-progression-levels.test.js`
-
