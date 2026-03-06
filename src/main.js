@@ -33,6 +33,7 @@ import {
   WORLD_BUILDINGS,
 } from "./building-system.js";
 import { createWorldBreakables, resolveBreakableAttackStep } from "./breakable-system.js";
+import { createDropSeed, createLootState, resolveDestroyedBreakableDrops } from "./drop-system.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -336,6 +337,9 @@ const state = {
     sectorIds: WORLD_SECTOR_IDS,
     spawnCooldown: 1.2,
     spawnRngState: (INITIAL_RUN_SEED ^ SPAWN_RNG_SEED_SALT) >>> 0,
+  }),
+  loot: createLootState({
+    dropRngState: createDropSeed(INITIAL_RUN_SEED),
   }),
   control: {
     pause: {
@@ -1649,6 +1653,9 @@ function startRun() {
     spawnCooldown: state.spawnCooldown,
     spawnRngState: createSpawnSeed(state.randomSeed),
   });
+  state.loot = createLootState({
+    dropRngState: createDropSeed(state.randomSeed),
+  });
 
   for (let i = 0; i < 3; i += 1) {
     spawnEnemy();
@@ -1810,6 +1817,12 @@ function doAttack() {
     ...(state.world || {}),
     breakables: breakableResolution.breakables,
   };
+  if (breakableResolution.destroyedBreakables.length > 0) {
+    state.loot = resolveDestroyedBreakableDrops({
+      lootState: state.loot,
+      destroyedBreakables: breakableResolution.destroyedBreakables,
+    }).lootState;
+  }
 
   const survivors = [];
   const killMoments = [];

@@ -128,6 +128,28 @@ function buildMockState() {
         chokeCount: 3,
       },
     },
+    loot: {
+      groundDrops: [
+        {
+          id: "drop-0001-hub-crate-01",
+          order: 0,
+          sourcePropId: "hub-crate-01",
+          sourceSectorId: "hub",
+          slot: "weapon",
+          rarity: "common",
+          statKey: "attackDamage",
+          statValue: 4,
+          x: 2.8,
+          y: -0.6,
+          pickupArmed: true,
+          needsRearm: false,
+          lastRangeState: "outside",
+        },
+      ],
+      dropRngState: 3829104,
+      eventSeq: 1,
+      pendingPickupId: null,
+    },
     spawnDirector: {
       eventSeq: 4,
       sectorWeights: [
@@ -232,6 +254,24 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(snapshot.world.readability.sectorLabel, "HUB");
   assert.equal(snapshot.world.readability.pressureLevel, "medium");
   assert.equal(snapshot.world.readability.pressureLabel, "TENSE");
+  assert.equal(snapshot.lootState.eventSeq, 1);
+  assert.equal(snapshot.lootState.pendingPickupId, null);
+  assert.deepEqual(snapshot.lootState.groundDrops[0], {
+    id: "drop-0001-hub-crate-01",
+    order: 0,
+    sourcePropId: "hub-crate-01",
+    sourceSectorId: "hub",
+    slot: "weapon",
+    rarity: "common",
+    statKey: "attackDamage",
+    statValue: 4,
+    x: 2.8,
+    y: -0.6,
+    pickupArmed: true,
+    needsRearm: false,
+    lastRangeState: "outside",
+  });
+  assert.equal(snapshot.lootState.dropRngState, 3829104);
   assert.equal(snapshot.spawnState.lastSpawnSectorId, "east");
   assert.equal(snapshot.spawnState.spawnCooldown, 0.494);
   assert.deepEqual(
