@@ -65,6 +65,15 @@ function buildMockState() {
       currentSectorId: "hub",
       visitedSectorIds: ["hub", "north", "east"],
       transitionSeq: 3,
+      readability: {
+        sectorLabel: "HUB",
+        pressureLevel: "medium",
+        pressureLabel: "TENSE",
+        sectorEnemyCount: 3,
+        mainLaneCount: 3,
+        bypassLaneCount: 0,
+        chokeCount: 3,
+      },
     },
     spawnDirector: {
       eventSeq: 4,
@@ -140,6 +149,9 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(Array.isArray(snapshot.inputState.pressedKeys), true);
   assert.equal(snapshot.inputState.edgeCount, 1);
   assert.deepEqual(snapshot.world.visitedSectorIds, ["hub", "north", "east"]);
+  assert.equal(snapshot.world.readability.sectorLabel, "HUB");
+  assert.equal(snapshot.world.readability.pressureLevel, "medium");
+  assert.equal(snapshot.world.readability.pressureLabel, "TENSE");
   assert.equal(snapshot.spawnState.lastSpawnSectorId, "east");
   assert.equal(snapshot.spawnState.spawnCooldown, 0.494);
   assert.deepEqual(

@@ -15,6 +15,7 @@ import {
   createWorldTraversalState,
   getSectorById,
   resolveSectorIdForPosition,
+  WORLD_SECTORS,
   WORLD_SECTOR_IDS,
 } from "./world-sectors.js";
 import { resolveEnemyBoundaryMovement, resolvePlayerBoundaryMovement } from "./world-collision.js";
@@ -28,6 +29,10 @@ import {
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
 const ARENA_HALF_HEIGHT = 11.5;
+const GROUND_WIDTH = 68;
+const GROUND_HEIGHT = 42;
+const GROUND_HALF_WIDTH = GROUND_WIDTH / 2;
+const GROUND_HALF_HEIGHT = GROUND_HEIGHT / 2;
 const PLAYER_MOVEMENT_FALLBACK_BOUNDS = Object.freeze({
   minX: -ARENA_HALF_WIDTH + 1,
   maxX: ARENA_HALF_WIDTH - 1,
@@ -59,6 +64,21 @@ const FEEDBACK_PARTICLE_HARD_CAP = 120;
 const FEEDBACK_PARTICLE_RESERVED_FOR_KILL = 18;
 const FEEDBACK_PARTICLE_EVENT_CAP = 20;
 const FEEDBACK_BANNER_RATE_LIMIT_SECONDS = 0.68;
+const READABILITY_PRESSURE_STYLE = Object.freeze({
+  low: Object.freeze({ hudLabel: "CALM", color: 0x87f6c2, floorTint: 0xffffff }),
+  medium: Object.freeze({ hudLabel: "TENSE", color: 0xffde75, floorTint: 0xfff7e3 }),
+  high: Object.freeze({ hudLabel: "HOT", color: 0xff7e62, floorTint: 0xffe8e1 }),
+});
+const SECTOR_SURFACE_COLORS = Object.freeze({
+  hub: "rgba(255, 241, 164, 0.18)",
+  north: "rgba(126, 239, 255, 0.16)",
+  east: "rgba(255, 160, 126, 0.16)",
+  south: "rgba(142, 255, 192, 0.16)",
+});
+const LANE_STYLE_BY_KIND = Object.freeze({
+  main: Object.freeze({ stroke: "rgba(255, 248, 179, 0.62)", width: 18, beaconColor: 0xffef9e }),
+  bypass: Object.freeze({ stroke: "rgba(125, 241, 255, 0.5)", width: 10, beaconColor: 0x7df1ff }),
+});
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -334,11 +354,16 @@ const world = {
   enemyRoot: new THREE.Group(),
   slashRoot: new THREE.Group(),
   particleRoot: new THREE.Group(),
+  guideRoot: new THREE.Group(),
   arenaBounds: null,
+  floor: null,
+  sectorGuides: [],
+  laneBeacons: [],
 };
 scene.add(world.enemyRoot);
 scene.add(world.slashRoot);
 scene.add(world.particleRoot);
+scene.add(world.guideRoot);
 
 buildWorld();
 resizeRenderer();
@@ -678,6 +703,176 @@ function makeCanvasTexture(width, height, drawFn) {
   return texture;
 }
 
+function worldToTexturePoint(x, y, width, height) {
+  return {
+    x: clamp(((x + GROUND_HALF_WIDTH) / GROUND_WIDTH) * width, 0, width),
+    y: clamp(((y + GROUND_HALF_HEIGHT) / GROUND_HEIGHT) * height, 0, height),
+  };
+}
+
+function getPressureStyle(level = "low") {
+  return READABILITY_PRESSURE_STYLE[level] || READABILITY_PRESSURE_STYLE.low;
+}
+
+function buildWorldReadabilityState() {
+  const currentSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const sector = getSectorById(currentSectorId) || getSectorById(WORLD_SECTOR_IDS[0]);
+  const sectorEnemyCounts = buildSectorEnemyCounts({
+    sectorIds: WORLD_SECTOR_IDS,
+    enemies: state.enemies,
+  });
+  const sectorEnemyCount = getSectorCountById(sectorEnemyCounts, sector?.id ?? WORLD_SECTOR_IDS[0]);
+  const mainLaneCount = sector?.lanes.filter((lane) => lane.kind === "main").length ?? 0;
+  const bypassLaneCount = sector?.lanes.filter((lane) => lane.kind === "bypass").length ?? 0;
+  const chokeCount = sector?.lanes.length ?? 0;
+  const localDensity = sectorEnemyCount / Math.max(1, mainLaneCount + bypassLaneCount + 0.75);
+  const globalPressure = clamp(state.enemies.length / MAX_ACTIVE_ENEMIES, 0, 1);
+  const chokePressure = chokeCount * 0.22 + mainLaneCount * 0.12 - bypassLaneCount * 0.08;
+  const pressureScore = localDensity + chokePressure + globalPressure * 1.1;
+
+  let pressureLevel = "low";
+  if (pressureScore >= 2.45 || sectorEnemyCount >= 5) {
+    pressureLevel = "high";
+  } else if (pressureScore >= 1.15 || sectorEnemyCount >= 2) {
+    pressureLevel = "medium";
+  }
+
+  return {
+    sectorLabel: String(sector?.id || currentSectorId || "unknown").toUpperCase(),
+    pressureLevel,
+    pressureLabel: getPressureStyle(pressureLevel).hudLabel,
+    sectorEnemyCount,
+    mainLaneCount,
+    bypassLaneCount,
+    chokeCount,
+  };
+}
+
+function updateWorldReadabilityState() {
+  state.world = {
+    ...(state.world || createWorldTraversalState()),
+    readability: buildWorldReadabilityState(),
+  };
+  return state.world.readability;
+}
+
+function distanceToSectorBoundary(sector, point) {
+  if (!sector) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const bounds = sector.bounds;
+  return Math.min(
+    Math.abs(point.x - bounds.minX),
+    Math.abs(bounds.maxX - point.x),
+    Math.abs(point.y - bounds.minY),
+    Math.abs(bounds.maxY - point.y),
+  );
+}
+
+function createSectorGuide(sector) {
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(sector.bounds.minX, 0.05, sector.bounds.minY),
+    new THREE.Vector3(sector.bounds.maxX, 0.05, sector.bounds.minY),
+    new THREE.Vector3(sector.bounds.maxX, 0.05, sector.bounds.maxY),
+    new THREE.Vector3(sector.bounds.minX, 0.05, sector.bounds.maxY),
+  ]);
+  const material = new THREE.LineBasicMaterial({
+    color: 0x1a557a,
+    transparent: true,
+    opacity: 0.18,
+  });
+  const line = new THREE.LineLoop(geometry, material);
+  line.renderOrder = 3;
+  return { sectorId: sector.id, line };
+}
+
+function createLaneBeacon(sectorId, lane) {
+  const style = LANE_STYLE_BY_KIND[lane.kind] || LANE_STYLE_BY_KIND.bypass;
+  const geometry = new THREE.RingGeometry(0.16, lane.kind === "main" ? 0.38 : 0.28, 24);
+  const material = new THREE.MeshBasicMaterial({
+    color: style.beaconColor,
+    transparent: true,
+    opacity: 0.16,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(lane.entry.x, 0.045, lane.entry.y);
+  mesh.renderOrder = 4;
+  return {
+    sectorId,
+    laneKind: lane.kind,
+    toSectorId: lane.toSectorId,
+    mesh,
+  };
+}
+
+function buildReadabilityGuides() {
+  world.sectorGuides = [];
+  world.laneBeacons = [];
+
+  for (const sector of WORLD_SECTORS) {
+    const guide = createSectorGuide(sector);
+    world.sectorGuides.push(guide);
+    world.guideRoot.add(guide.line);
+
+    for (const lane of sector.lanes) {
+      const beacon = createLaneBeacon(sector.id, lane);
+      world.laneBeacons.push(beacon);
+      world.guideRoot.add(beacon.mesh);
+    }
+  }
+}
+
+function syncReadabilityGuides() {
+  const currentSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const currentSector = getSectorById(currentSectorId);
+  const readability = state.world?.readability || buildWorldReadabilityState();
+  const visited = new Set(state.world?.visitedSectorIds || []);
+  const pressureStyle = getPressureStyle(readability.pressureLevel);
+  const boundaryDistance = distanceToSectorBoundary(currentSector, { x: state.player.x, y: state.player.y });
+  const boundaryBoost = clamp(1 - boundaryDistance / 2.2, 0, 1);
+
+  if (world.floor?.material?.color) {
+    world.floor.material.color.setHex(pressureStyle.floorTint);
+  }
+
+  for (const guide of world.sectorGuides) {
+    const isCurrent = guide.sectorId === currentSectorId;
+    const isVisited = visited.has(guide.sectorId);
+    guide.line.material.color.setHex(isCurrent ? pressureStyle.color : isVisited ? 0x9ee8dd : 0x1a557a);
+    guide.line.material.opacity = isCurrent ? 0.64 + boundaryBoost * 0.28 : isVisited ? 0.34 : 0.14;
+    guide.line.scale.setScalar(isCurrent ? 1 + boundaryBoost * 0.02 : 1);
+  }
+
+  const pulse = 0.7 + Math.sin(state.time * 4.8) * 0.08;
+  for (const beacon of world.laneBeacons) {
+    const isCurrent = beacon.sectorId === currentSectorId;
+    const isConnected = beacon.toSectorId === currentSectorId;
+    const isVisited = visited.has(beacon.sectorId) || visited.has(beacon.toSectorId);
+    const opacityBase =
+      beacon.laneKind === "main"
+        ? isCurrent
+          ? 0.72
+          : isConnected
+            ? 0.42
+            : isVisited
+              ? 0.2
+              : 0.08
+        : isCurrent
+          ? 0.48
+          : isConnected
+            ? 0.32
+            : isVisited
+              ? 0.16
+              : 0.06;
+    beacon.mesh.material.opacity = opacityBase * pulse;
+    beacon.mesh.scale.setScalar(isCurrent ? 1.08 + boundaryBoost * 0.08 : 1);
+  }
+}
+
 function pixelTextureFromPattern(pattern, palette) {
   const width = pattern[0].length;
   const height = pattern.length;
@@ -728,6 +923,46 @@ function createGroundTexture() {
       }
     }
 
+    for (const sector of WORLD_SECTORS) {
+      const topLeft = worldToTexturePoint(sector.bounds.minX, sector.bounds.minY, width, height);
+      const bottomRight = worldToTexturePoint(sector.bounds.maxX, sector.bounds.maxY, width, height);
+      ctx.fillStyle = SECTOR_SURFACE_COLORS[sector.id] || "rgba(255,255,255,0.12)";
+      ctx.fillRect(
+        topLeft.x,
+        topLeft.y,
+        Math.max(4, bottomRight.x - topLeft.x),
+        Math.max(4, bottomRight.y - topLeft.y),
+      );
+
+      ctx.strokeStyle = sector.kind === "hub" ? "rgba(255, 245, 168, 0.58)" : "rgba(223, 245, 255, 0.36)";
+      ctx.lineWidth = sector.kind === "hub" ? 6 : 4;
+      ctx.strokeRect(
+        topLeft.x + 1,
+        topLeft.y + 1,
+        Math.max(2, bottomRight.x - topLeft.x - 2),
+        Math.max(2, bottomRight.y - topLeft.y - 2),
+      );
+
+      for (const lane of sector.lanes) {
+        const from = worldToTexturePoint(lane.entry.x, lane.entry.y, width, height);
+        const to = worldToTexturePoint(lane.exit.x, lane.exit.y, width, height);
+        const style = LANE_STYLE_BY_KIND[lane.kind] || LANE_STYLE_BY_KIND.bypass;
+
+        ctx.strokeStyle = style.stroke;
+        ctx.lineWidth = style.width;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+
+        ctx.fillStyle = lane.kind === "main" ? "rgba(255, 244, 192, 0.72)" : "rgba(145, 240, 255, 0.66)";
+        ctx.beginPath();
+        ctx.arc(from.x, from.y, lane.kind === "main" ? 7 : 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     ctx.strokeStyle = "rgba(9,36,58,0.22)";
     ctx.lineWidth = 4;
     ctx.strokeRect(6, 6, width - 12, height - 12);
@@ -735,12 +970,13 @@ function createGroundTexture() {
 }
 
 function buildWorld() {
-  const floorGeometry = new THREE.PlaneGeometry(68, 42, 1, 1);
+  const floorGeometry = new THREE.PlaneGeometry(GROUND_WIDTH, GROUND_HEIGHT, 1, 1);
   const floorMaterial = new THREE.MeshBasicMaterial({ map: createGroundTexture() });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.02;
   scene.add(floor);
+  world.floor = floor;
 
   const rimGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-ARENA_HALF_WIDTH, 0.05, -ARENA_HALF_HEIGHT),
@@ -755,6 +991,7 @@ function buildWorld() {
 
   world.playerSprite = createSprite(PATTERN_PLAYER, PALETTE_PLAYER, 2.7);
   scene.add(world.playerSprite);
+  buildReadabilityGuides();
 }
 
 function resizeRenderer() {
@@ -1088,6 +1325,7 @@ function startRun() {
     spawnEnemy();
   }
   refreshSpawnDirectorState();
+  updateWorldReadabilityState();
 
   startScreen.classList.add("hidden");
   gameoverScreen.classList.add("hidden");
@@ -1377,6 +1615,7 @@ function updateHud() {
   const chainText = state.chain > 1 && state.chainTimer > 0 ? `x${state.chain}` : "-";
   const bannerText = state.feedback.bannerTimer > 0 ? state.feedback.bannerText : "-";
   const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
+  const readability = state.world?.readability || buildWorldReadabilityState();
 
   let modeText = "ACTIVE";
   if (state.mode === "paused") {
@@ -1393,12 +1632,14 @@ function updateHud() {
     recoveryPending: state.control.focus.recoveryPending,
   });
   const fullscreenText = state.control.fullscreen.isFullscreen ? "FS ON" : "FS OFF";
+  hud.dataset.pressure = readability.pressureLevel;
 
   hud.textContent =
     `HP ${hp}/${PLAYER_MAX_HP}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
+    `Sector ${readability.sectorLabel}  Pressure ${readability.pressureLabel}\n` +
     `${modeText}  ${focusText}  ${fullscreenText}\n` +
     `Cue ${bannerText}`;
 }
@@ -1434,6 +1675,7 @@ function syncVisuals() {
   const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
+  syncReadabilityGuides();
   updateFeedbackOverlay();
 
   renderer.render(scene, camera);
@@ -1500,6 +1742,7 @@ function updateGameStep(dt) {
     hud.classList.remove("hidden");
   }
 
+  updateWorldReadabilityState();
   updateHud();
   syncVisuals();
   pressedThisStep.clear();

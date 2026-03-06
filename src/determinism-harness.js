@@ -73,8 +73,10 @@ export function buildDeterministicSnapshot({
   const particles = Array.isArray(currentState.particles) ? currentState.particles : [];
   const world = currentState.world || {};
   const spawnDirector = currentState.spawnDirector || {};
+  const worldReadability = world.readability || {};
 
   const meta = determinismMeta || currentState.determinism || {};
+  const worldSummary = buildWorldTraversalSummary(world);
 
   return {
     schemaVersion: DETERMINISM_SCHEMA_VERSION,
@@ -101,7 +103,23 @@ export function buildDeterministicSnapshot({
     kills: Math.floor(toFinite(currentState.kills, 0)),
     chain: Math.floor(toFinite(currentState.chain, 0)),
     nextSpawnIn: toRounded(currentState.spawnCooldown, 3),
-    world: buildWorldTraversalSummary(world),
+    world: {
+      ...worldSummary,
+      readability: {
+        sectorLabel:
+          typeof worldReadability.sectorLabel === "string"
+            ? worldReadability.sectorLabel
+            : String(worldSummary.currentSectorId || "unknown").toUpperCase(),
+        pressureLevel:
+          typeof worldReadability.pressureLevel === "string" ? worldReadability.pressureLevel : "low",
+        pressureLabel:
+          typeof worldReadability.pressureLabel === "string" ? worldReadability.pressureLabel : "CALM",
+        sectorEnemyCount: Math.floor(toFinite(worldReadability.sectorEnemyCount, 0)),
+        mainLaneCount: Math.floor(toFinite(worldReadability.mainLaneCount, 0)),
+        bypassLaneCount: Math.floor(toFinite(worldReadability.bypassLaneCount, 0)),
+        chokeCount: Math.floor(toFinite(worldReadability.chokeCount, 0)),
+      },
+    },
     spawnState: {
       eventSeq: Math.floor(toFinite(spawnDirector.eventSeq, 0)),
       sectorWeights: normalizeOrderedEntries(spawnDirector.sectorWeights, "weight"),

@@ -67,6 +67,34 @@ body {
   line-height: 1.2;
   white-space: pre;
   pointer-events: none;
+  box-shadow:
+    0 10px 24px rgba(6, 14, 26, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.hud[data-pressure="low"] {
+  border-color: rgba(151, 255, 216, 0.48);
+  background: rgba(5, 22, 36, 0.72);
+  box-shadow:
+    0 10px 24px rgba(6, 14, 26, 0.22),
+    inset 0 0 0 1px rgba(149, 255, 214, 0.08);
+}
+
+.hud[data-pressure="medium"] {
+  border-color: rgba(255, 222, 117, 0.68);
+  background: rgba(41, 27, 10, 0.76);
+  box-shadow:
+    0 12px 28px rgba(29, 18, 4, 0.28),
+    inset 0 0 0 1px rgba(255, 231, 145, 0.12);
+}
+
+.hud[data-pressure="high"] {
+  border-color: rgba(255, 126, 98, 0.8);
+  background: rgba(56, 14, 10, 0.8);
+  box-shadow:
+    0 14px 32px rgba(47, 10, 8, 0.32),
+    inset 0 0 0 1px rgba(255, 179, 164, 0.12);
 }
 
 .overlay {
