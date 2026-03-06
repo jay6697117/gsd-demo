@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-current_phase: 10
+current_phase: 11
 current_phase_name: Automation & Determinism Hardening
 current_plan: 0
 status: ready_to_plan
