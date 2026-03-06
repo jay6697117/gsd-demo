@@ -38,8 +38,8 @@
 
 ### Skills & Talents
 
-- [ ] **TAL-01**: User is offered 3 upgrade choices at each level-up event.
-- [ ] **TAL-02**: User can select exactly one option and resume combat without input lock.
+- [x] **TAL-01**: User is offered 3 upgrade choices at each level-up event.
+- [x] **TAL-02**: User can select exactly one option and resume combat without input lock.
 - [x] **TAL-03**: Choice pool supports both skill-type and talent-type upgrades with eligibility/exclusion constraints.
 - [x] **TAL-04**: Duplicate or invalid options are filtered out from a single choice panel.
 - [ ] **TAL-05**: Applied upgrades produce immediate measurable combat-state impact.
@@ -97,8 +97,8 @@
 | PROG-03 | Phase 09 | Complete |
 | PROG-04 | Phase 09 | Complete |
 | PROG-05 | Phase 09 | Complete |
-| TAL-01 | Phase 10 | Pending |
-| TAL-02 | Phase 10 | Pending |
+| TAL-01 | Phase 10 | Complete |
+| TAL-02 | Phase 10 | Complete |
 | TAL-03 | Phase 10 | Complete |
 | TAL-04 | Phase 10 | Complete |
 | TAL-05 | Phase 10 | Pending |

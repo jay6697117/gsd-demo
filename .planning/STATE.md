@@ -4,22 +4,22 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 10
 current_phase_name: Skill/Talent Choice Engine
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-06T17:05:50.617Z"
-last_activity: 2026-03-06
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-06T17:16:12Z"
+last_activity: 2026-03-07
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 20
-  completed_plans: 17
-  percent: 89
+  completed_plans: 18
+  percent: 90
 ---
 
 # STATE: PokeThrees Hunter
 
-**Updated:** 2026-03-06
+**Updated:** 2026-03-07
 
 ## Current Position
 
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 10
 - **Current Phase Name:** Skill/Talent Choice Engine
 - **Total Phases:** 6
-- **Current Plan:** 2
+- **Current Plan:** 3
 - **Total Plans in Phase:** 4
-- **Status:** Ready to execute
-- **Last Activity:** 2026-03-06
-- **Last Activity Description:** Planned Phase 10 with 4 plans in 4 waves
-- **Progress:** [█████████░] 89%
+- **Status:** Executing
+- **Last Activity:** 2026-03-07
+- **Last Activity Description:** Completed 10-02-PLAN.md with deterministic level-up choice mode and input-safe resume semantics
+- **Progress:** [█████████░] 90%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -58,6 +58,7 @@ progress:
 | Phase 09 P03 | 4 min | 2 tasks | 5 files |
 | Phase 09 P04 | 4 min | 2 tasks | 2 files |
 | Phase 10 P1 | 10 min | 2 tasks | 3 files |
+| Phase 10 P2 | 13 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ progress:
 - [Phase 09]: Restart parity is verified through the real `gameover -> restart -> startRun` flow instead of a privileged reset hook. — This keeps future choice-panel work anchored to the same reset path players actually use.
 - [Phase 10]: Catalog constraints are now authored data, not inferred from panel UI state. — This keeps Wave 2 focused on mode/input wiring instead of rebuilding pool validity rules in the UI layer.
 - [Phase 10]: Offer generation is deterministic and isolated behind createOfferSeed() plus pure filtering/generation helpers. — An isolated offer RNG stream prevents reroll and choice generation from perturbing spawn, loot, or progression replay contracts.
+- [Phase 10]: Pending level-up events stay queued until the player confirms one choice from an active modal session. — This preserves deterministic event identity for reroll, snapshot, and exactly-one-consume semantics.
+- [Phase 10]: `equip_compare` must win over `levelup_choice`, and `KeyP` is ignored while the level-up panel is active. — Modal priority and pause immunity are part of the runtime contract, not optional UI behavior.
 
 ### Blockers
 
@@ -100,8 +103,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-06T17:05:50.615Z
-- **Stopped At:** Completed 10-01-PLAN.md
+- **Last session:** 2026-03-06T17:16:12Z
+- **Stopped At:** Completed 10-02-PLAN.md
 - **Resume File:** None
 
 ## Project Reference
