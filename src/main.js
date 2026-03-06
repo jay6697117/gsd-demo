@@ -40,6 +40,7 @@ import {
   rejectCompareCandidate,
   resolveAutoPickupStep,
 } from "./equipment-system.js";
+import { applyEnemyKillXp, createProgressionState } from "./progression-system.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -369,6 +370,7 @@ const state = {
     dropRngState: createDropSeed(INITIAL_RUN_SEED),
   }),
   equipment: createEquipmentState(),
+  progression: createProgressionState(),
   control: {
     pause: {
       lastTransition: "init",
@@ -1768,6 +1770,7 @@ function startRun() {
   state.spawnCooldown = 0.75;
   state.nextEnemyId = 1;
   state.equipment = createEquipmentState();
+  state.progression = createProgressionState();
   state.player.x = 0;
   state.player.y = 0;
   state.player.vx = 0;
@@ -2082,6 +2085,10 @@ function doAttack() {
       state.chain = 1;
     }
     state.chainTimer = 2.4;
+    state.progression = applyEnemyKillXp({
+      progressionState: state.progression,
+      enemyKind: enemy.kind,
+    }).progressionState;
     killMoments.push({ x: enemy.x, y: enemy.y });
   }
 

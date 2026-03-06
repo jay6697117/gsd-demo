@@ -7,6 +7,7 @@ import {
   XP_VALUES_BY_ENEMY_KIND,
 } from "../src/progression-config.js";
 import {
+  applyEnemyKillXp,
   applyXpGain,
   createProgressionState,
   getLevelForXp,
@@ -109,6 +110,34 @@ test("xp gains below the next threshold preserve queue and event sequence", () =
   assert.deepEqual(result.progressionState, {
     level: 2,
     totalXp: 9,
+    pendingLevelUps: [{ id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 }],
+    eventSeq: 1,
+  });
+});
+
+test("enemy kill xp flows through the progression reducer without touching score semantics", () => {
+  const initialState = createProgressionState();
+
+  const leaflingResult = applyEnemyKillXp({
+    progressionState: initialState,
+    enemyKind: "leafling",
+  });
+  const embercubResult = applyEnemyKillXp({
+    progressionState: leaflingResult.progressionState,
+    enemyKind: "embercub",
+  });
+  const finishingResult = applyEnemyKillXp({
+    progressionState: embercubResult.progressionState,
+    enemyKind: "embercub",
+  });
+
+  assert.equal(leaflingResult.xpGain, 1);
+  assert.equal(embercubResult.xpGain, 2);
+  assert.equal(finishingResult.leveledUp, true);
+  assert.deepEqual(finishingResult.gainedEvents, [{ id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 }]);
+  assert.deepEqual(finishingResult.progressionState, {
+    level: 2,
+    totalXp: 5,
     pendingLevelUps: [{ id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 }],
     eventSeq: 1,
   });

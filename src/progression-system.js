@@ -115,3 +115,19 @@ export function applyXpGain({
     leveledUp: gainedEvents.length > 0,
   };
 }
+
+export function applyEnemyKillXp({
+  progressionState = createProgressionState(),
+  enemyKind = null,
+} = {}) {
+  const xpGain = getXpValueForEnemyKind(enemyKind);
+  const result = applyXpGain({
+    progressionState,
+    xpGain,
+  });
+
+  return {
+    ...result,
+    xpGain,
+  };
+}
