@@ -169,3 +169,21 @@ test("snapshot summary exposes stable progression fields for hud and replay asse
     },
   );
 });
+
+test("fresh progression state resets level, xp, queue, and event sequence to baseline", () => {
+  assert.deepEqual(createProgressionState(), {
+    level: 1,
+    totalXp: 0,
+    pendingLevelUps: [],
+    eventSeq: 0,
+  });
+  assert.deepEqual(summarizeProgressionStateForSnapshot(createProgressionState()), {
+    level: 1,
+    totalXp: 0,
+    currentLevelStartXp: 0,
+    nextLevelXp: 4,
+    pendingLevelUpCount: 0,
+    pendingLevelUps: [],
+    eventSeq: 0,
+  });
+});
