@@ -150,6 +150,46 @@ function buildMockState() {
       eventSeq: 1,
       pendingPickupId: null,
     },
+    equipment: {
+      slots: {
+        weapon: {
+          id: "drop-0001-hub-crate-01",
+          slot: "weapon",
+          rarity: "common",
+          statKey: "attackDamage",
+          statValue: 4,
+          sourcePropId: "hub-crate-01",
+        },
+        core: null,
+        charm: null,
+      },
+      derivedStats: {
+        attackDamage: 4,
+        maxHp: 0,
+        moveSpeed: 0,
+      },
+      compareCandidate: {
+        dropId: "drop-0002-hub-cache-01",
+        slot: "weapon",
+        candidateItem: {
+          id: "drop-0002-hub-cache-01",
+          slot: "weapon",
+          rarity: "rare",
+          statKey: "attackDamage",
+          statValue: 7,
+          sourcePropId: "hub-cache-01",
+        },
+        equippedItem: {
+          id: "drop-0001-hub-crate-01",
+          slot: "weapon",
+          rarity: "common",
+          statKey: "attackDamage",
+          statValue: 4,
+          sourcePropId: "hub-crate-01",
+        },
+        statDelta: 3,
+      },
+    },
     spawnDirector: {
       eventSeq: 4,
       sectorWeights: [
@@ -272,6 +312,10 @@ test("snapshot includes stable schema/version and required sections", () => {
     lastRangeState: "outside",
   });
   assert.equal(snapshot.lootState.dropRngState, 3829104);
+  assert.equal(snapshot.equipmentState.derivedStats.attackDamage, 4);
+  assert.equal(snapshot.equipmentState.slots.weapon.id, "drop-0001-hub-crate-01");
+  assert.equal(snapshot.equipmentState.compareCandidate.slot, "weapon");
+  assert.equal(snapshot.equipmentState.compareCandidate.statDelta, 3);
   assert.equal(snapshot.spawnState.lastSpawnSectorId, "east");
   assert.equal(snapshot.spawnState.spawnCooldown, 0.494);
   assert.deepEqual(

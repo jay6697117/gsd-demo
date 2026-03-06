@@ -251,6 +251,64 @@ body {
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
+.compare-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.compare-panel {
+  min-width: min(78vw, 460px);
+  padding: 1rem 1.1rem 0.9rem;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+  background:
+    linear-gradient(180deg, rgba(16, 26, 40, 0.92), rgba(8, 16, 26, 0.9)),
+    rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 22px 42px rgba(6, 12, 20, 0.42),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.compare-panel[data-slot="weapon"] {
+  border-color: rgba(255, 179, 94, 0.68);
+}
+
+.compare-panel[data-slot="core"] {
+  border-color: rgba(127, 217, 255, 0.68);
+}
+
+.compare-panel[data-slot="charm"] {
+  border-color: rgba(167, 255, 192, 0.68);
+}
+
+.compare-title {
+  margin: 0 0 0.55rem;
+  font-family: "Press Start 2P", monospace;
+  font-size: clamp(14px, 1.7vw, 18px);
+  letter-spacing: 0.06em;
+  color: #fff4cc;
+}
+
+.compare-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "VT323", monospace;
+  font-size: clamp(18px, 2.1vw, 26px);
+  line-height: 1.15;
+  color: #ebffff;
+}
+
+.compare-hint {
+  margin: 0.7rem 0 0;
+  font-size: clamp(14px, 1.5vw, 18px);
+  letter-spacing: 0.05em;
+  color: #ffd9a8;
+}
+
 button {
   cursor: pointer;
   border: 2px solid rgba(255, 255, 255, 0.8);

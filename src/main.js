@@ -34,6 +34,12 @@ import {
 } from "./building-system.js";
 import { createWorldBreakables, resolveBreakableAttackStep } from "./breakable-system.js";
 import { createDropSeed, createLootState, resolveDestroyedBreakableDrops } from "./drop-system.js";
+import {
+  acceptCompareCandidate,
+  createEquipmentState,
+  rejectCompareCandidate,
+  resolveAutoPickupStep,
+} from "./equipment-system.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -115,6 +121,27 @@ feedbackBanner.className = "feedback-center-banner";
 
 feedbackOverlay.append(feedbackDangerLayer, feedbackFlashLayer, feedbackBanner);
 canvasStage.append(feedbackOverlay);
+
+const compareOverlay = document.createElement("div");
+compareOverlay.className = "compare-overlay hidden";
+compareOverlay.setAttribute("aria-hidden", "true");
+
+const comparePanel = document.createElement("div");
+comparePanel.className = "compare-panel";
+
+const compareTitle = document.createElement("h2");
+compareTitle.className = "compare-title";
+
+const compareBody = document.createElement("pre");
+compareBody.className = "compare-body";
+
+const compareHint = document.createElement("p");
+compareHint.className = "compare-hint";
+compareHint.textContent = "Enter / Space equip  ·  Escape keep current";
+
+comparePanel.append(compareTitle, compareBody, compareHint);
+compareOverlay.append(comparePanel);
+canvasStage.append(compareOverlay);
 
 function createRendererRuntime(targetCanvas, disableWebgl) {
   if (disableWebgl) {
@@ -341,6 +368,7 @@ const state = {
   loot: createLootState({
     dropRngState: createDropSeed(INITIAL_RUN_SEED),
   }),
+  equipment: createEquipmentState(),
   control: {
     pause: {
       lastTransition: "init",
@@ -379,6 +407,8 @@ const world = {
   particleRoot: new THREE.Group(),
   breakableRoot: new THREE.Group(),
   breakableVisuals: [],
+  dropRoot: new THREE.Group(),
+  dropVisuals: new Map(),
   buildingRoot: new THREE.Group(),
   buildingVisuals: [],
   guideRoot: new THREE.Group(),
@@ -391,6 +421,7 @@ scene.add(world.enemyRoot);
 scene.add(world.slashRoot);
 scene.add(world.particleRoot);
 scene.add(world.breakableRoot);
+scene.add(world.dropRoot);
 scene.add(world.buildingRoot);
 scene.add(world.guideRoot);
 
@@ -582,6 +613,38 @@ function nextSpawnRngValue() {
   return nextState / 0x100000000;
 }
 
+function getEffectiveAttackDamage() {
+  return PLAYER_ATTACK_DAMAGE + (state.equipment?.derivedStats?.attackDamage ?? 0);
+}
+
+function getEffectiveMaxHp() {
+  return PLAYER_MAX_HP + (state.equipment?.derivedStats?.maxHp ?? 0);
+}
+
+function getEffectiveMoveSpeed() {
+  return PLAYER_BASE_SPEED + (state.equipment?.derivedStats?.moveSpeed ?? 0);
+}
+
+function formatStatValue(statKey, value) {
+  if (statKey === "moveSpeed") {
+    return Number(toFiniteNumber(value, 0).toFixed(1));
+  }
+  return Math.round(toFiniteNumber(value, 0));
+}
+
+function formatStatLabel(statKey) {
+  if (statKey === "attackDamage") {
+    return "ATK";
+  }
+  if (statKey === "maxHp") {
+    return "HP";
+  }
+  if (statKey === "moveSpeed") {
+    return "SPD";
+  }
+  return "STAT";
+}
+
 function chooseEnemyType(roll = simulationRng()) {
   if (roll < 0.42) {
     return { key: "leafling", hp: 26, speed: 3.1, points: 100, pattern: PATTERN_LEAFLING };
@@ -600,7 +663,7 @@ function getSectorCountById(sectorEnemyCounts, sectorId) {
 function buildSpawnHeatState(sectorEnemyCounts) {
   const playerSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
   const pressure = clamp(state.enemies.length / MAX_ACTIVE_ENEMIES, 0, 1);
-  const healthDanger = clamp(1 - state.player.hp / PLAYER_MAX_HP, 0, 1);
+  const healthDanger = clamp(1 - state.player.hp / getEffectiveMaxHp(), 0, 1);
   const danger = clamp(healthDanger * 0.55 + pressure * 0.45, 0, 1);
   const playerSectorCount = getSectorCountById(sectorEnemyCounts, playerSectorId);
 
@@ -1066,6 +1129,105 @@ function syncBreakableVisuals() {
     visual.panel.material.opacity = isBroken ? 0.08 : isCurrent ? 0.66 : isVisited ? 0.42 : 0.24;
     visual.outline.material.opacity = isBroken ? 0.14 : isCurrent ? 0.92 : isVisited ? 0.56 : 0.32;
     visual.accent.material.opacity = isBroken ? 0.06 : isCurrent ? 0.52 : isVisited ? 0.28 : 0.14;
+  }
+}
+
+function getDropRarityColor(rarity) {
+  if (rarity === "epic") {
+    return 0xc58cff;
+  }
+  if (rarity === "rare") {
+    return 0x7fd9ff;
+  }
+  return 0xffd88a;
+}
+
+function createDropVisual(drop) {
+  const group = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.18, 0.34, 20),
+    new THREE.MeshBasicMaterial({
+      color: getDropRarityColor(drop.rarity),
+      transparent: true,
+      opacity: 0.72,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.renderOrder = 5;
+
+  const core = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.22, 0.22),
+    new THREE.MeshBasicMaterial({
+      color: getDropRarityColor(drop.rarity),
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  core.rotation.x = -Math.PI / 2;
+  core.rotation.z = Math.PI / 4;
+  core.position.y = 0.05;
+  core.renderOrder = 6;
+
+  group.add(ring, core);
+  world.dropRoot.add(group);
+
+  return {
+    dropId: drop.id,
+    group,
+    ring,
+    core,
+  };
+}
+
+function disposeDropVisual(visual) {
+  if (!visual) {
+    return;
+  }
+  world.dropRoot.remove(visual.group);
+  visual.ring.geometry.dispose();
+  visual.ring.material.dispose();
+  visual.core.geometry.dispose();
+  visual.core.material.dispose();
+}
+
+function clearDropVisuals() {
+  for (const visual of world.dropVisuals.values()) {
+    disposeDropVisual(visual);
+  }
+  world.dropVisuals.clear();
+}
+
+function syncDropVisuals() {
+  const groundDrops = state.loot?.groundDrops || [];
+  const activeIds = new Set(groundDrops.map((drop) => drop.id));
+
+  for (const [dropId, visual] of world.dropVisuals.entries()) {
+    if (!activeIds.has(dropId)) {
+      disposeDropVisual(visual);
+      world.dropVisuals.delete(dropId);
+    }
+  }
+
+  for (const drop of groundDrops) {
+    let visual = world.dropVisuals.get(drop.id);
+    if (!visual) {
+      visual = createDropVisual(drop);
+      world.dropVisuals.set(drop.id, visual);
+    }
+
+    const pending = state.loot?.pendingPickupId === drop.id;
+    const disarmed = !drop.pickupArmed || drop.needsRearm;
+    const pulse = 0.86 + Math.sin(state.time * 5.4 + drop.order) * 0.08;
+    visual.group.position.set(drop.x, 0.02, drop.y);
+    visual.group.scale.setScalar((pending ? 1.18 : 1) * pulse);
+    visual.ring.material.color.setHex(getDropRarityColor(drop.rarity));
+    visual.core.material.color.setHex(getDropRarityColor(drop.rarity));
+    visual.ring.material.opacity = disarmed ? 0.22 : pending ? 0.9 : 0.64;
+    visual.core.material.opacity = disarmed ? 0.18 : pending ? 0.94 : 0.76;
   }
 }
 
@@ -1543,7 +1705,7 @@ function updateFeedbackState(dt) {
 
   const dangerState =
     state.mode === "playing"
-      ? getDangerState(state.player.hp, PLAYER_MAX_HP, state.time)
+      ? getDangerState(state.player.hp, getEffectiveMaxHp(), state.time)
       : { isDanger: false, flashAlpha: 0 };
   const dangerDemand = clamp(dangerState.flashAlpha * 0.72, 0, 0.72);
   const dangerTarget = state.feedback.killPriorityTimer > 0 ? dangerDemand * 0.35 : dangerDemand;
@@ -1590,6 +1752,7 @@ function updateWorldTraversalFromPlayerPosition(nextSectorHint = null) {
 
 function startRun() {
   clearCombatObjects();
+  clearDropVisuals();
   clearInputState();
   state.mode = "playing";
   state.time = 0;
@@ -1599,11 +1762,12 @@ function startRun() {
   state.chainTimer = 0;
   state.spawnCooldown = 0.75;
   state.nextEnemyId = 1;
+  state.equipment = createEquipmentState();
   state.player.x = 0;
   state.player.y = 0;
   state.player.vx = 0;
   state.player.vy = 0;
-  state.player.hp = PLAYER_MAX_HP;
+  state.player.hp = getEffectiveMaxHp();
   state.player.attackCooldown = 0;
   state.player.invulnerable = 0;
   state.player.facingX = 0;
@@ -1717,6 +1881,74 @@ function maybeHandlePauseAndRestart() {
   }
 }
 
+function applyEquipmentState(nextEquipmentState, nextLootState, nextMode = state.mode, bannerText = null) {
+  state.equipment = nextEquipmentState;
+  state.loot = nextLootState;
+  state.mode = nextMode;
+  state.player.hp = Math.min(state.player.hp, getEffectiveMaxHp());
+  if (bannerText) {
+    setCenterBanner(bannerText, "chain", 0.42, true);
+  }
+}
+
+function updateAutoPickup() {
+  const result = resolveAutoPickupStep({
+    equipmentState: state.equipment,
+    lootState: state.loot,
+    playerPosition: { x: state.player.x, y: state.player.y },
+    pickupRadius: 1.25,
+  });
+
+  if (result.action === "equipped") {
+    const equippedItem = result.appliedItem;
+    applyEquipmentState(
+      result.equipmentState,
+      result.lootState,
+      result.nextMode,
+      `EQUIPPED ${formatStatLabel(equippedItem.statKey)} +${formatStatValue(equippedItem.statKey, equippedItem.statValue)}`,
+    );
+    return;
+  }
+
+  if (result.action === "compare") {
+    state.equipment = result.equipmentState;
+    state.loot = result.lootState;
+    state.mode = result.nextMode;
+    setCenterBanner("COMPARE ITEM", "neutral", 0.38, true);
+    return;
+  }
+
+  state.equipment = result.equipmentState;
+  state.loot = result.lootState;
+}
+
+function handleEquipCompareInput() {
+  if (consumeEdge(pressedThisStep, "Escape")) {
+    const rejected = rejectCompareCandidate({
+      equipmentState: state.equipment,
+      lootState: state.loot,
+    });
+    applyEquipmentState(rejected.equipmentState, rejected.lootState, rejected.nextMode, "KEEP CURRENT");
+    return;
+  }
+
+  if (consumeEdge(pressedThisStep, "Enter") || consumeEdge(pressedThisStep, "Space")) {
+    const accepted = acceptCompareCandidate({
+      equipmentState: state.equipment,
+      lootState: state.loot,
+    });
+    const acceptedItem = accepted.acceptedItem;
+    applyEquipmentState(
+      accepted.equipmentState,
+      accepted.lootState,
+      accepted.nextMode,
+      acceptedItem
+        ? `EQUIPPED ${formatStatLabel(acceptedItem.statKey)} +${formatStatValue(acceptedItem.statKey, acceptedItem.statValue)}`
+        : "EQUIPPED",
+    );
+  }
+}
+
 function applyPlayerInput(dt) {
   const left = keyboardDown.has("ArrowLeft") || keyboardDown.has("KeyA");
   const right = keyboardDown.has("ArrowRight") || keyboardDown.has("KeyD");
@@ -1730,8 +1962,8 @@ function applyPlayerInput(dt) {
   let desiredVx = 0;
   let desiredVy = 0;
   if (len > 0) {
-    desiredVx = (xDir / len) * PLAYER_BASE_SPEED;
-    desiredVy = (yDir / len) * PLAYER_BASE_SPEED;
+    desiredVx = (xDir / len) * getEffectiveMoveSpeed();
+    desiredVy = (yDir / len) * getEffectiveMoveSpeed();
     state.player.facingX = xDir / len;
     state.player.facingY = yDir / len;
   }
@@ -1800,7 +2032,7 @@ function doAttack() {
       continue;
     }
 
-    enemy.hp -= PLAYER_ATTACK_DAMAGE;
+    enemy.hp -= getEffectiveAttackDamage();
     enemy.flash = 0.1;
     hitMoments.push({ x: enemy.x, y: enemy.y });
   }
@@ -1810,7 +2042,7 @@ function doAttack() {
     attackOrigin: { x: state.player.x, y: state.player.y },
     attackFacing: { x: state.player.facingX, y: state.player.facingY },
     attackRadius: PLAYER_ATTACK_RADIUS,
-    attackDamage: PLAYER_ATTACK_DAMAGE,
+    attackDamage: getEffectiveAttackDamage(),
     frontDotThreshold: PLAYER_ATTACK_FRONT_DOT_THRESHOLD,
   });
   state.world = {
@@ -1982,10 +2214,14 @@ function updateSpawning(dt) {
 
 function updateHud() {
   const hp = Math.max(0, Math.floor(state.player.hp));
+  const maxHp = Math.max(1, Math.floor(getEffectiveMaxHp()));
   const score = Math.floor(state.score);
   const chainText = state.chain > 1 && state.chainTimer > 0 ? `x${state.chain}` : "-";
   const bannerText = state.feedback.bannerTimer > 0 ? state.feedback.bannerText : "-";
   const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
+  const gearText = state.equipment?.derivedStats
+    ? `Gear ATK+${formatStatValue("attackDamage", state.equipment.derivedStats.attackDamage)} HP+${formatStatValue("maxHp", state.equipment.derivedStats.maxHp)} SPD+${formatStatValue("moveSpeed", state.equipment.derivedStats.moveSpeed)}`
+    : "Gear ATK+0 HP+0 SPD+0";
   const readability = state.world?.readability || buildWorldReadabilityState();
   const tactics = state.world?.tactics || buildWorldTacticsState({
     currentSectorId: state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0],
@@ -2001,6 +2237,8 @@ function updateHud() {
   let modeText = "ACTIVE";
   if (state.mode === "paused") {
     modeText = "PAUSED";
+  } else if (state.mode === "equip_compare") {
+    modeText = "COMPARE";
   } else if (state.mode === "gameover") {
     modeText = "GAME OVER";
   } else if (state.mode === "restart_pending") {
@@ -2018,10 +2256,11 @@ function updateHud() {
   hud.dataset.pocket = tactics.retreatPocketActive ? "active" : "idle";
 
   hud.textContent =
-    `HP ${hp}/${PLAYER_MAX_HP}\n` +
+    `HP ${hp}/${maxHp}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
+    `${gearText}\n` +
     `Sector ${readability.sectorLabel}  Pressure ${readability.pressureLabel}\n` +
     `Tactic ${tactics.cueLabel}  B${tacticCounts.blocker ?? 0} F${tacticCounts.funnel ?? 0} S${tacticCounts["soft-cover"] ?? 0}\n` +
     `${modeText}  ${focusText}  ${fullscreenText}\n` +
@@ -2048,6 +2287,30 @@ function updateFeedbackOverlay() {
   }
 }
 
+function updateCompareOverlay() {
+  const compareCandidate = state.equipment?.compareCandidate;
+  if (state.mode !== "equip_compare" || !compareCandidate) {
+    compareOverlay.classList.add("hidden");
+    compareOverlay.setAttribute("aria-hidden", "true");
+    compareTitle.textContent = "";
+    compareBody.textContent = "";
+    return;
+  }
+
+  const currentItem = compareCandidate.equippedItem;
+  const nextItem = compareCandidate.candidateItem;
+  const sign = compareCandidate.statDelta >= 0 ? "+" : "";
+  const statLabel = formatStatLabel(nextItem.statKey);
+  compareOverlay.classList.remove("hidden");
+  compareOverlay.setAttribute("aria-hidden", "false");
+  comparePanel.dataset.slot = compareCandidate.slot;
+  compareTitle.textContent = `${compareCandidate.slot.toUpperCase()} COMPARE`;
+  compareBody.textContent =
+    `Current  ${currentItem ? `${currentItem.rarity.toUpperCase()} ${statLabel} ${formatStatValue(currentItem.statKey, currentItem.statValue)}` : "EMPTY"}\n` +
+    `Next     ${nextItem.rarity.toUpperCase()} ${statLabel} ${formatStatValue(nextItem.statKey, nextItem.statValue)}\n` +
+    `Delta    ${sign}${formatStatValue(nextItem.statKey, compareCandidate.statDelta)}`;
+}
+
 function syncVisuals() {
   syncSpritePosition(world.playerSprite, state.player.x, state.player.y);
 
@@ -2060,9 +2323,11 @@ function syncVisuals() {
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
   syncBreakableVisuals();
+  syncDropVisuals();
   syncBuildingVisuals();
   syncReadabilityGuides();
   updateFeedbackOverlay();
+  updateCompareOverlay();
 
   renderer.render(scene, camera);
 }
@@ -2081,13 +2346,16 @@ function updateGameStep(dt) {
     }
 
     applyPlayerInput(dt);
+    updateAutoPickup();
 
-    if (consumeEdge(pressedThisStep, "Space")) {
-      doAttack();
+    if (state.mode === "playing") {
+      if (consumeEdge(pressedThisStep, "Space")) {
+        doAttack();
+      }
+
+      updateEnemies(dt);
+      updateSpawning(dt);
     }
-
-    updateEnemies(dt);
-    updateSpawning(dt);
     updateSlashEffects(dt);
     updateParticles(dt);
     updateFeedbackState(dt);
@@ -2096,6 +2364,11 @@ function updateGameStep(dt) {
       state.player.hp = 0;
       enterGameOver();
     }
+  } else if (state.mode === "equip_compare") {
+    handleEquipCompareInput();
+    updateSlashEffects(dt);
+    updateParticles(dt);
+    updateFeedbackState(dt);
   } else if (state.mode === "restart_pending") {
     state.restartTimer = Math.max(0, state.restartTimer - dt);
     gameoverStats.textContent =

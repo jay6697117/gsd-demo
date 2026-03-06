@@ -1,6 +1,7 @@
 import { summarizeBuildingsForSnapshot } from "./building-system.js";
 import { summarizeBreakablesForSnapshot } from "./breakable-system.js";
 import { summarizeLootStateForSnapshot } from "./drop-system.js";
+import { summarizeEquipmentStateForSnapshot } from "./equipment-system.js";
 import { buildWorldTraversalSummary } from "./world-sectors.js";
 
 export const DETERMINISM_SCHEMA_VERSION = "1.0.0";
@@ -54,6 +55,10 @@ function normalizeBreakableSummary(breakables) {
 
 function normalizeLootStateSummary(lootState) {
   return summarizeLootStateForSnapshot(lootState);
+}
+
+function normalizeEquipmentStateSummary(equipmentState) {
+  return summarizeEquipmentStateForSnapshot(equipmentState);
 }
 
 function normalizeWorldTactics(tactics) {
@@ -164,6 +169,7 @@ export function buildDeterministicSnapshot({
       },
     },
     lootState: normalizeLootStateSummary(currentState.loot),
+    equipmentState: normalizeEquipmentStateSummary(currentState.equipment),
     spawnState: {
       eventSeq: Math.floor(toFinite(spawnDirector.eventSeq, 0)),
       sectorWeights: normalizeOrderedEntries(spawnDirector.sectorWeights, "weight"),
