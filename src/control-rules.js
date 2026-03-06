@@ -13,6 +13,9 @@ export function resolvePauseMode(currentMode) {
   if (currentMode === "paused") {
     return "playing";
   }
+  if (currentMode === "levelup_choice") {
+    return "levelup_choice";
+  }
   return currentMode;
 }
 

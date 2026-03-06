@@ -22,6 +22,7 @@ test("consumeEdge consumes one-shot key exactly once", () => {
 test("resolvePauseMode toggles only between playing and paused", () => {
   assert.equal(resolvePauseMode("playing"), "paused");
   assert.equal(resolvePauseMode("paused"), "playing");
+  assert.equal(resolvePauseMode("levelup_choice"), "levelup_choice");
   assert.equal(resolvePauseMode("start"), "start");
   assert.equal(resolvePauseMode("gameover"), "gameover");
 });

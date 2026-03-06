@@ -41,6 +41,14 @@ import {
   resolveAutoPickupStep,
 } from "./equipment-system.js";
 import {
+  beginLevelUpChoice,
+  confirmLevelUpChoice,
+  createLevelUpState,
+  createOfferSeed,
+  createUpgradeState,
+  moveLevelUpSelection,
+} from "./levelup-system.js";
+import {
   applyEnemyKillXp,
   createProgressionState,
   getLevelWindow,
@@ -147,6 +155,52 @@ compareHint.textContent = "Enter / Space equip  ·  Escape keep current";
 comparePanel.append(compareTitle, compareBody, compareHint);
 compareOverlay.append(comparePanel);
 canvasStage.append(compareOverlay);
+
+const levelUpOverlay = document.createElement("div");
+levelUpOverlay.className = "levelup-overlay hidden";
+levelUpOverlay.setAttribute("aria-hidden", "true");
+
+const levelUpPanel = document.createElement("div");
+levelUpPanel.className = "levelup-panel";
+
+const levelUpTitle = document.createElement("h2");
+levelUpTitle.className = "levelup-title";
+levelUpTitle.textContent = "LEVEL UP";
+
+const levelUpSubtitle = document.createElement("p");
+levelUpSubtitle.className = "levelup-subtitle";
+
+const levelUpChoices = document.createElement("div");
+levelUpChoices.className = "levelup-choices";
+
+const levelUpChoiceCards = Array.from({ length: 3 }, () => {
+  const card = document.createElement("article");
+  card.className = "levelup-choice";
+
+  const kind = document.createElement("p");
+  kind.className = "levelup-choice-kind";
+
+  const label = document.createElement("h3");
+  label.className = "levelup-choice-label";
+
+  const body = document.createElement("p");
+  body.className = "levelup-choice-body";
+
+  const meta = document.createElement("p");
+  meta.className = "levelup-choice-meta";
+
+  card.append(kind, label, body, meta);
+  levelUpChoices.append(card);
+  return { card, kind, label, body, meta };
+});
+
+const levelUpHint = document.createElement("p");
+levelUpHint.className = "levelup-hint";
+levelUpHint.textContent = "A / Left  D / Right  Enter / Space choose  ·  P ignored";
+
+levelUpPanel.append(levelUpTitle, levelUpSubtitle, levelUpChoices, levelUpHint);
+levelUpOverlay.append(levelUpPanel);
+canvasStage.append(levelUpOverlay);
 
 function createRendererRuntime(targetCanvas, disableWebgl) {
   if (disableWebgl) {
@@ -374,6 +428,10 @@ const state = {
     dropRngState: createDropSeed(INITIAL_RUN_SEED),
   }),
   equipment: createEquipmentState(),
+  levelUp: createLevelUpState({
+    offerRngState: createOfferSeed(INITIAL_RUN_SEED),
+  }),
+  upgrades: createUpgradeState(),
   progression: createProgressionState(),
   control: {
     pause: {
@@ -1783,6 +1841,10 @@ function startRun() {
   state.spawnCooldown = 0.75;
   state.nextEnemyId = 1;
   state.equipment = createEquipmentState();
+  state.levelUp = createLevelUpState({
+    offerRngState: createOfferSeed(INITIAL_RUN_SEED),
+  });
+  state.upgrades = createUpgradeState();
   state.progression = createProgressionState();
   state.player.x = 0;
   state.player.y = 0;
@@ -1966,6 +2028,75 @@ function handleEquipCompareInput() {
       acceptedItem
         ? `EQUIPPED ${formatStatLabel(acceptedItem.statKey)} +${formatStatValue(acceptedItem.statKey, acceptedItem.statValue)}`
         : "EQUIPPED",
+    );
+  }
+}
+
+function maybeEnterLevelUpChoice() {
+  if (state.mode !== "playing") {
+    return;
+  }
+  if ((state.progression?.pendingLevelUps?.length ?? 0) === 0) {
+    return;
+  }
+  if (state.equipment?.compareCandidate) {
+    return;
+  }
+
+  const opened = beginLevelUpChoice({
+    progressionState: state.progression,
+    upgradeState: state.upgrades,
+    levelUpState: state.levelUp,
+  });
+  if (!opened.didOpen) {
+    return;
+  }
+
+  state.progression = opened.progressionState;
+  state.upgrades = opened.upgradeState;
+  state.levelUp = opened.levelUpState;
+  state.mode = "levelup_choice";
+  setCenterBanner("LEVEL UP", "neutral", 0.44, true);
+}
+
+function handleLevelUpChoiceInput() {
+  if (consumeEdge(pressedThisStep, "ArrowLeft") || consumeEdge(pressedThisStep, "KeyA")) {
+    state.levelUp = moveLevelUpSelection({
+      levelUpState: state.levelUp,
+      direction: -1,
+    });
+    return;
+  }
+
+  if (consumeEdge(pressedThisStep, "ArrowRight") || consumeEdge(pressedThisStep, "KeyD")) {
+    state.levelUp = moveLevelUpSelection({
+      levelUpState: state.levelUp,
+      direction: 1,
+    });
+    return;
+  }
+
+  if (consumeEdge(pressedThisStep, "Enter") || consumeEdge(pressedThisStep, "Space")) {
+    const confirmed = confirmLevelUpChoice({
+      progressionState: state.progression,
+      upgradeState: state.upgrades,
+      levelUpState: state.levelUp,
+    });
+
+    if (!confirmed.didConfirm) {
+      return;
+    }
+
+    state.progression = confirmed.progressionState;
+    state.upgrades = confirmed.upgradeState;
+    state.levelUp = confirmed.levelUpState;
+    state.mode = "playing";
+    clearInputState();
+    setCenterBanner(
+      confirmed.chosenChoice ? `SELECTED ${confirmed.chosenChoice.label}` : "UPGRADE SELECTED",
+      "chain",
+      0.44,
+      true,
     );
   }
 }
@@ -2272,6 +2403,8 @@ function updateHud() {
     modeText = "PAUSED";
   } else if (state.mode === "equip_compare") {
     modeText = "COMPARE";
+  } else if (state.mode === "levelup_choice") {
+    modeText = "LEVEL UP";
   } else if (state.mode === "gameover") {
     modeText = "GAME OVER";
   } else if (state.mode === "restart_pending") {
@@ -2345,6 +2478,46 @@ function updateCompareOverlay() {
     `Delta    ${sign}${formatStatValue(nextItem.statKey, compareCandidate.statDelta)}`;
 }
 
+function updateLevelUpOverlay() {
+  const levelUpState = state.levelUp;
+  if (state.mode !== "levelup_choice" || !levelUpState?.activeEventId) {
+    levelUpOverlay.classList.add("hidden");
+    levelUpOverlay.setAttribute("aria-hidden", "true");
+    levelUpSubtitle.textContent = "";
+    for (const entry of levelUpChoiceCards) {
+      entry.card.dataset.selected = "false";
+      entry.card.dataset.kind = "none";
+      entry.kind.textContent = "";
+      entry.label.textContent = "";
+      entry.body.textContent = "";
+      entry.meta.textContent = "";
+    }
+    return;
+  }
+
+  levelUpOverlay.classList.remove("hidden");
+  levelUpOverlay.setAttribute("aria-hidden", "false");
+  levelUpSubtitle.textContent = `Event ${levelUpState.activeEventId}  ·  Choose 1 of ${levelUpState.offeredChoices.length}`;
+
+  for (let index = 0; index < levelUpChoiceCards.length; index += 1) {
+    const entry = levelUpChoiceCards[index];
+    const choice = levelUpState.offeredChoices[index];
+    const isSelected = index === levelUpState.selectedIndex;
+    const effectLabel = choice?.effect?.kind
+      ? String(choice.effect.kind).replace(/([A-Z])/g, " $1").trim().toUpperCase()
+      : "EFFECT";
+
+    entry.card.dataset.selected = isSelected ? "true" : "false";
+    entry.card.dataset.kind = choice?.kind ?? "none";
+    entry.kind.textContent = choice ? `${choice.kind.toUpperCase()} · Rank ${choice.nextRank}/${choice.maxRank}` : "";
+    entry.label.textContent = choice?.label ?? "EMPTY";
+    entry.body.textContent = choice?.description ?? "";
+    entry.meta.textContent = choice
+      ? `${effectLabel} ${formatStatValue(choice.effect.kind, choice.effect.amount)}`
+      : "";
+  }
+}
+
 function syncVisuals() {
   syncSpritePosition(world.playerSprite, state.player.x, state.player.y);
 
@@ -2362,6 +2535,7 @@ function syncVisuals() {
   syncReadabilityGuides();
   updateFeedbackOverlay();
   updateCompareOverlay();
+  updateLevelUpOverlay();
 
   renderer.render(scene, camera);
 }
@@ -2381,6 +2555,7 @@ function updateGameStep(dt) {
 
     applyPlayerInput(dt);
     updateAutoPickup();
+    maybeEnterLevelUpChoice();
 
     if (state.mode === "playing") {
       if (consumeEdge(pressedThisStep, "Space")) {
@@ -2400,6 +2575,11 @@ function updateGameStep(dt) {
     }
   } else if (state.mode === "equip_compare") {
     handleEquipCompareInput();
+    updateSlashEffects(dt);
+    updateParticles(dt);
+    updateFeedbackState(dt);
+  } else if (state.mode === "levelup_choice") {
+    handleLevelUpChoiceInput();
     updateSlashEffects(dt);
     updateParticles(dt);
     updateFeedbackState(dt);

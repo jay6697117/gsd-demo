@@ -6,10 +6,14 @@ import {
   UPGRADE_CATALOG,
 } from "../src/upgrade-catalog.js";
 import {
+  beginLevelUpChoice,
+  confirmLevelUpChoice,
   createOfferSeed,
+  createLevelUpState,
   createUpgradeState,
   generateUpgradeOffers,
   getEligibleUpgrades,
+  moveLevelUpSelection,
 } from "../src/levelup-system.js";
 
 test("upgrade catalog exposes skill and talent entries with explicit constraint metadata", () => {
@@ -79,4 +83,124 @@ test("deterministic offer generation returns exactly three unique choices and co
     first.offeredChoices.map((entry) => entry.id),
     ["edge_control", "heavy_hand", "sturdy_frame"],
   );
+});
+
+test("beginLevelUpChoice opens one deterministic session from the queue head", () => {
+  const progressionState = {
+    level: 3,
+    totalXp: 10,
+    pendingLevelUps: [
+      { id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 },
+      { id: "lvlup-0002", reachedLevel: 3, thresholdXp: 10 },
+    ],
+    eventSeq: 2,
+  };
+  const upgradeState = createUpgradeState({
+    appliedChoices: [{ id: "wide_slash", kind: "skill" }],
+  });
+  const levelUpState = createLevelUpState({
+    offerRngState: createOfferSeed(0x1234abcd),
+  });
+
+  const opened = beginLevelUpChoice({
+    progressionState,
+    upgradeState,
+    levelUpState,
+  });
+
+  assert.equal(opened.didOpen, true);
+  assert.equal(opened.levelUpState.activeEventId, "lvlup-0001");
+  assert.equal(opened.levelUpState.currentOfferId, "lvlup-0001-offer-0001");
+  assert.equal(opened.levelUpState.offerSeq, 1);
+  assert.equal(opened.levelUpState.rerollsRemaining, 1);
+  assert.equal(opened.levelUpState.selectedIndex, 0);
+  assert.equal(opened.levelUpState.offeredChoices.length, 3);
+  assert.deepEqual(
+    opened.progressionState.pendingLevelUps.map((event) => event.id),
+    ["lvlup-0001", "lvlup-0002"],
+  );
+});
+
+test("moveLevelUpSelection clamps focus within the offered choice range", () => {
+  const levelUpState = createLevelUpState({
+    activeEventId: "lvlup-0001",
+    currentOfferId: "lvlup-0001-offer-0001",
+    offeredChoices: [
+      { id: "edge_control", kind: "skill" },
+      { id: "heavy_hand", kind: "talent" },
+      { id: "sturdy_frame", kind: "talent" },
+    ],
+    selectedIndex: 1,
+  });
+
+  const movedLeft = moveLevelUpSelection({
+    levelUpState,
+    direction: -1,
+  });
+  const movedPastStart = moveLevelUpSelection({
+    levelUpState: movedLeft,
+    direction: -1,
+  });
+  const movedRight = moveLevelUpSelection({
+    levelUpState: movedPastStart,
+    direction: 1,
+  });
+  const movedPastEnd = moveLevelUpSelection({
+    levelUpState: {
+      ...levelUpState,
+      selectedIndex: 2,
+    },
+    direction: 1,
+  });
+
+  assert.equal(movedLeft.selectedIndex, 0);
+  assert.equal(movedPastStart.selectedIndex, 0);
+  assert.equal(movedRight.selectedIndex, 1);
+  assert.equal(movedPastEnd.selectedIndex, 2);
+});
+
+test("confirmLevelUpChoice consumes exactly one pending event and records the selected upgrade", () => {
+  const progressionState = {
+    level: 3,
+    totalXp: 10,
+    pendingLevelUps: [
+      { id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 },
+      { id: "lvlup-0002", reachedLevel: 3, thresholdXp: 10 },
+    ],
+    eventSeq: 2,
+  };
+  const upgradeState = createUpgradeState({
+    appliedChoices: [{ id: "wide_slash", kind: "skill" }],
+  });
+  const openResult = beginLevelUpChoice({
+    progressionState,
+    upgradeState,
+    levelUpState: createLevelUpState({
+      offerRngState: createOfferSeed(0x1234abcd),
+    }),
+  });
+
+  const confirmed = confirmLevelUpChoice({
+    progressionState: openResult.progressionState,
+    upgradeState,
+    levelUpState: {
+      ...openResult.levelUpState,
+      selectedIndex: 1,
+    },
+  });
+
+  assert.equal(confirmed.didConfirm, true);
+  assert.equal(confirmed.chosenChoice.id, openResult.levelUpState.offeredChoices[1].id);
+  assert.deepEqual(
+    confirmed.progressionState.pendingLevelUps.map((event) => event.id),
+    ["lvlup-0002"],
+  );
+  assert.deepEqual(
+    confirmed.upgradeState.appliedChoices.map((choice) => choice.id),
+    ["wide_slash", openResult.levelUpState.offeredChoices[1].id],
+  );
+  assert.equal(confirmed.levelUpState.activeEventId, null);
+  assert.equal(confirmed.levelUpState.currentOfferId, null);
+  assert.deepEqual(confirmed.levelUpState.offeredChoices, []);
+  assert.equal(confirmed.levelUpState.selectedIndex, 0);
 });

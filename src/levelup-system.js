@@ -1,4 +1,5 @@
 import { OFFER_RNG_SEED_SALT, UPGRADE_CATALOG } from "./upgrade-catalog.js";
+import { createProgressionState } from "./progression-system.js";
 
 function toFiniteNumber(value, fallback = 0) {
   const normalized = Number(value);
@@ -100,6 +101,61 @@ function normalizeLevelUpEvent(levelUpEvent = {}) {
   };
 }
 
+function normalizeOfferedChoice(choice, catalog = UPGRADE_CATALOG) {
+  if (!choice || typeof choice !== "object") {
+    return null;
+  }
+
+  const entry = getCatalogEntryById(choice.id, catalog);
+  const kind =
+    typeof choice.kind === "string"
+      ? choice.kind
+      : typeof entry?.kind === "string"
+        ? entry.kind
+        : null;
+  if (typeof choice.id !== "string" || !kind) {
+    return null;
+  }
+
+  return {
+    id: choice.id,
+    kind,
+    label: typeof choice.label === "string" ? choice.label : entry?.label ?? choice.id,
+    description:
+      typeof choice.description === "string"
+        ? choice.description
+        : entry?.description ?? "",
+    maxRank: Math.max(1, Math.floor(toFiniteNumber(choice.maxRank ?? entry?.maxRank, 1))),
+    nextRank: Math.max(1, Math.floor(toFiniteNumber(choice.nextRank, 1))),
+    requires: Array.isArray(choice.requires)
+      ? [...choice.requires]
+      : Array.isArray(entry?.requires)
+        ? [...entry.requires]
+        : [],
+    excludes: Array.isArray(choice.excludes)
+      ? [...choice.excludes]
+      : Array.isArray(entry?.excludes)
+        ? [...entry.excludes]
+        : [],
+    tags: Array.isArray(choice.tags)
+      ? [...choice.tags]
+      : Array.isArray(entry?.tags)
+        ? [...entry.tags]
+        : [],
+    effect: {
+      kind:
+        typeof choice.effect?.kind === "string"
+          ? choice.effect.kind
+          : entry?.effect?.kind ?? null,
+      amount: toFiniteNumber(choice.effect?.amount ?? entry?.effect?.amount, 0),
+    },
+  };
+}
+
+function createOfferId(eventId, offerSeq) {
+  return `${eventId}-offer-${String(offerSeq).padStart(4, "0")}`;
+}
+
 export function createOfferSeed(seed) {
   return (Math.floor(toFiniteNumber(seed, 0)) ^ OFFER_RNG_SEED_SALT) >>> 0;
 }
@@ -114,6 +170,35 @@ export function createUpgradeState({ appliedChoices = [], skillModifiers = null,
     appliedChoices: normalizedChoices,
     skillModifiers: skillModifiers && typeof skillModifiers === "object" ? { ...buildEmptyModifiers(), ...skillModifiers } : derived.skillModifiers,
     talentModifiers: talentModifiers && typeof talentModifiers === "object" ? { ...buildEmptyModifiers(), ...talentModifiers } : derived.talentModifiers,
+  };
+}
+
+export function createLevelUpState({
+  activeEventId = null,
+  currentOfferId = null,
+  offeredChoices = [],
+  selectedIndex = 0,
+  rerollsRemaining = 0,
+  offerSeq = 0,
+  offerRngState = 0,
+} = {}) {
+  const normalizedChoices = (Array.isArray(offeredChoices) ? offeredChoices : [])
+    .map((choice) => normalizeOfferedChoice(choice))
+    .filter(Boolean);
+  const maxIndex = Math.max(0, normalizedChoices.length - 1);
+  const normalizedSelectedIndex =
+    normalizedChoices.length > 0
+      ? Math.min(maxIndex, Math.max(0, Math.floor(toFiniteNumber(selectedIndex, 0))))
+      : 0;
+
+  return {
+    activeEventId: typeof activeEventId === "string" ? activeEventId : null,
+    currentOfferId: typeof currentOfferId === "string" ? currentOfferId : null,
+    offeredChoices: normalizedChoices,
+    selectedIndex: normalizedSelectedIndex,
+    rerollsRemaining: Math.max(0, Math.floor(toFiniteNumber(rerollsRemaining, 0))),
+    offerSeq: Math.max(0, Math.floor(toFiniteNumber(offerSeq, 0))),
+    offerRngState: Math.floor(toFiniteNumber(offerRngState, 0)) >>> 0,
   };
 }
 
@@ -203,5 +288,129 @@ export function generateUpgradeOffers({
       effect: { ...entry.effect },
     })),
     offerRngState: nextState,
+  };
+}
+
+export function beginLevelUpChoice({
+  progressionState = createProgressionState(),
+  upgradeState = createUpgradeState(),
+  levelUpState = createLevelUpState(),
+  catalog = UPGRADE_CATALOG,
+} = {}) {
+  const normalizedProgression = createProgressionState(progressionState);
+  const normalizedUpgradeState = createUpgradeState(upgradeState);
+  const normalizedLevelUpState = createLevelUpState(levelUpState);
+
+  if (
+    normalizedLevelUpState.activeEventId ||
+    normalizedProgression.pendingLevelUps.length === 0
+  ) {
+    return {
+      didOpen: false,
+      progressionState: normalizedProgression,
+      upgradeState: normalizedUpgradeState,
+      levelUpState: normalizedLevelUpState,
+    };
+  }
+
+  const activeEvent = normalizedProgression.pendingLevelUps[0];
+  const offerResult = generateUpgradeOffers({
+    levelUpEvent: activeEvent,
+    upgradeState: normalizedUpgradeState,
+    offerRngState: normalizedLevelUpState.offerRngState,
+    catalog,
+  });
+  const nextOfferSeq = normalizedLevelUpState.offerSeq + 1;
+
+  return {
+    didOpen: true,
+    progressionState: normalizedProgression,
+    upgradeState: normalizedUpgradeState,
+    levelUpState: createLevelUpState({
+      activeEventId: activeEvent.id,
+      currentOfferId: createOfferId(activeEvent.id, nextOfferSeq),
+      offeredChoices: offerResult.offeredChoices,
+      selectedIndex: 0,
+      rerollsRemaining: 1,
+      offerSeq: nextOfferSeq,
+      offerRngState: offerResult.offerRngState,
+    }),
+  };
+}
+
+export function moveLevelUpSelection({
+  levelUpState = createLevelUpState(),
+  direction = 0,
+} = {}) {
+  const normalizedLevelUpState = createLevelUpState(levelUpState);
+  if (normalizedLevelUpState.offeredChoices.length === 0) {
+    return normalizedLevelUpState;
+  }
+
+  const nextIndex = Math.min(
+    normalizedLevelUpState.offeredChoices.length - 1,
+    Math.max(
+      0,
+      normalizedLevelUpState.selectedIndex +
+        Math.sign(toFiniteNumber(direction, 0)),
+    ),
+  );
+
+  return createLevelUpState({
+    ...normalizedLevelUpState,
+    selectedIndex: nextIndex,
+  });
+}
+
+export function confirmLevelUpChoice({
+  progressionState = createProgressionState(),
+  upgradeState = createUpgradeState(),
+  levelUpState = createLevelUpState(),
+} = {}) {
+  const normalizedProgression = createProgressionState(progressionState);
+  const normalizedUpgradeState = createUpgradeState(upgradeState);
+  const normalizedLevelUpState = createLevelUpState(levelUpState);
+  const chosenChoice =
+    normalizedLevelUpState.offeredChoices[normalizedLevelUpState.selectedIndex] ??
+    normalizedLevelUpState.offeredChoices[0] ??
+    null;
+
+  if (!normalizedLevelUpState.activeEventId || !chosenChoice) {
+    return {
+      didConfirm: false,
+      chosenChoice: null,
+      progressionState: normalizedProgression,
+      upgradeState: normalizedUpgradeState,
+      levelUpState: normalizedLevelUpState,
+    };
+  }
+
+  let removed = false;
+  const nextPendingLevelUps = normalizedProgression.pendingLevelUps.filter((event) => {
+    if (!removed && event.id === normalizedLevelUpState.activeEventId) {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    didConfirm: true,
+    consumedEventId: normalizedLevelUpState.activeEventId,
+    chosenChoice,
+    progressionState: createProgressionState({
+      ...normalizedProgression,
+      pendingLevelUps: nextPendingLevelUps,
+    }),
+    upgradeState: createUpgradeState({
+      appliedChoices: [
+        ...normalizedUpgradeState.appliedChoices,
+        { id: chosenChoice.id, kind: chosenChoice.kind },
+      ],
+    }),
+    levelUpState: createLevelUpState({
+      offerRngState: normalizedLevelUpState.offerRngState,
+      offerSeq: normalizedLevelUpState.offerSeq,
+    }),
   };
 }
