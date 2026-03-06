@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 07
 current_phase_name: Building Tactical Layer
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Phase 07 plan 02 ready
-last_updated: "2026-03-06T03:03:49.881Z"
+stopped_at: Phase 07 plan 03 ready
+last_updated: "2026-03-06T03:13:52.313Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 81
+  completed_plans: 6
+  percent: 88
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 07
 - **Current Phase Name:** Building Tactical Layer
 - **Total Phases:** 6
-- **Current Plan:** 2
+- **Current Plan:** 3
 - **Total Plans in Phase:** 4
 - **Status:** Ready to execute
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Completed Phase 07 Plan 01: deterministic building foundation
-- **Progress:** [████████░░] 81%
+- **Last Activity Description:** Completed Phase 07 Plan 02: runtime tactical building integration
+- **Progress:** [█████████░] 88%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -67,6 +67,7 @@ progress:
 - [Phase 06]: Applied collision contact checks after enemy boundary resolution so chase damage uses final deterministic positions. — Post-resolution distance checks remove one-frame mismatch at sector boundaries and stabilize chase contact behavior.
 - [Phase 06]: Moved spawn decisions onto a pure sector-aware director with explicit replay state. — MAP-03 needs deterministic sector selection plus snapshot-visible cooldown and RNG evidence.
 - [Phase 06]: Derived readability cues from sector topology plus live per-sector enemy counts instead of layering ad-hoc visual hints. — MAP-04 requires safe lanes and choke zones to be machine-verifiable and consistent with traversal/spawn state.
+- [Phase 07]: Player movement now resolves against building colliders while enemy steering stays deferred to 07-03. — This keeps the new tactical layer visible and usable immediately without coupling it to unfinished enemy navigation changes.
 
 ### Blockers
 
@@ -75,7 +76,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-05T17:09:46.183Z
-- **Stopped At:** Phase 07 plan 02 ready
+- **Stopped At:** Phase 07 plan 03 ready
 - **Resume File:** None
 
 ## Project Reference
