@@ -6,15 +6,15 @@ current_phase: 06
 current_phase_name: World Sectors & Spawn Determinism
 current_plan: 4
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-03-06T02:03:59.239Z"
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-03-06T02:21:44Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 3
-  percent: 92
+  completed_plans: 4
+  percent: 100
 ---
 
 # STATE: PokeThrees Hunter
@@ -29,10 +29,10 @@ progress:
 - **Total Phases:** 6
 - **Current Plan:** 4
 - **Total Plans in Phase:** 4
-- **Status:** Ready to execute
+- **Status:** Ready for verification
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Completed 06-03-PLAN.md and ready for 06-04-PLAN.md
-- **Progress:** [█████████░] 92%
+- **Last Activity Description:** Completed 06-04-PLAN.md and ready for phase verification
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -45,6 +45,7 @@ progress:
 | Phase 06 P01 | 4 min | 2 tasks | 3 files |
 | Phase 06 P02 | 3 min | 2 tasks | 3 files |
 | Phase 06 P03 | 9 min | 2 tasks | 5 files |
+| Phase 06 P04 | 12 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,7 @@ progress:
 - [Phase 06]: Extracted sector-boundary movement into pure APIs and reused them for player and enemy updates to prevent rule drift. — A shared pure resolver keeps movement behavior deterministic and prevents divergence between player traversal and enemy pursuit boundary rules.
 - [Phase 06]: Applied collision contact checks after enemy boundary resolution so chase damage uses final deterministic positions. — Post-resolution distance checks remove one-frame mismatch at sector boundaries and stabilize chase contact behavior.
 - [Phase 06]: Moved spawn decisions onto a pure sector-aware director with explicit replay state. — MAP-03 needs deterministic sector selection plus snapshot-visible cooldown and RNG evidence.
+- [Phase 06]: Derived readability cues from sector topology plus live per-sector enemy counts instead of layering ad-hoc visual hints. — MAP-04 requires safe lanes and choke zones to be machine-verifiable and consistent with traversal/spawn state.
 
 ### Blockers
 
@@ -72,7 +74,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-05T17:09:46.183Z
-- **Stopped At:** Completed 06-03-PLAN.md
+- **Stopped At:** Completed 06-04-PLAN.md
 - **Resume File:** None
 
 ## Project Reference

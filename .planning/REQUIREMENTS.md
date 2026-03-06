@@ -11,7 +11,7 @@
 - [x] **MAP-01**: User can enter and traverse at least 3 connected map sectors in one run.
 - [x] **MAP-02**: User movement and enemy pursuit remain collision-stable at sector boundaries.
 - [x] **MAP-03**: Enemy spawn distribution follows sector rules and is deterministic for the same seed and timeline.
-- [ ] **MAP-04**: User can recognize safe lanes/choke zones visually during active combat.
+- [x] **MAP-04**: User can recognize safe lanes/choke zones visually during active combat.
 
 ### Buildings
 
@@ -82,7 +82,7 @@
 | MAP-01 | Phase 06 | Complete |
 | MAP-02 | Phase 06 | Complete |
 | MAP-03 | Phase 06 | Complete |
-| MAP-04 | Phase 06 | Pending |
+| MAP-04 | Phase 06 | Complete |
 | BLD-01 | Phase 07 | Pending |
 | BLD-02 | Phase 07 | Pending |
 | BLD-03 | Phase 07 | Pending |
@@ -116,4 +116,4 @@
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-05 after roadmap mapping (phases 06-11)*
+*Last updated: 2026-03-06 after Phase 06 plan execution*
