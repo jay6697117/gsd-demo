@@ -39,6 +39,19 @@ function clampPointToBounds(point, bounds, epsilon = BOUNDARY_EPSILON) {
   };
 }
 
+function normalizeBuildingColliders(buildingColliders = []) {
+  return Array.isArray(buildingColliders)
+    ? buildingColliders.filter(
+        (collider) =>
+          collider?.bounds &&
+          Number.isFinite(collider.bounds.minX) &&
+          Number.isFinite(collider.bounds.maxX) &&
+          Number.isFinite(collider.bounds.minY) &&
+          Number.isFinite(collider.bounds.maxY),
+      )
+    : [];
+}
+
 function findSectorIdForPoint(point) {
   for (const sector of WORLD_SECTORS) {
     if (isInsideBounds(sector.bounds, point)) {
@@ -46,6 +59,102 @@ function findSectorIdForPoint(point) {
     }
   }
   return null;
+}
+
+function segmentIntersectsBounds(fromPoint, toPoint, bounds) {
+  if (isInsideBounds(bounds, fromPoint) || isInsideBounds(bounds, toPoint)) {
+    return true;
+  }
+
+  const deltaX = toPoint.x - fromPoint.x;
+  const deltaY = toPoint.y - fromPoint.y;
+  let minT = 0;
+  let maxT = 1;
+
+  const axes = [
+    { start: fromPoint.x, delta: deltaX, min: bounds.minX, max: bounds.maxX },
+    { start: fromPoint.y, delta: deltaY, min: bounds.minY, max: bounds.maxY },
+  ];
+
+  for (const axis of axes) {
+    if (Math.abs(axis.delta) < BOUNDARY_EPSILON) {
+      if (axis.start < axis.min || axis.start > axis.max) {
+        return false;
+      }
+      continue;
+    }
+
+    const t1 = (axis.min - axis.start) / axis.delta;
+    const t2 = (axis.max - axis.start) / axis.delta;
+    const entry = Math.min(t1, t2);
+    const exit = Math.max(t1, t2);
+    minT = Math.max(minT, entry);
+    maxT = Math.min(maxT, exit);
+
+    if (minT > maxT) {
+      return false;
+    }
+  }
+
+  return maxT >= 0 && minT <= 1;
+}
+
+function movementBlockedByBuildingColliders(fromPoint, toPoint, buildingColliders) {
+  const colliders = normalizeBuildingColliders(buildingColliders);
+  return colliders.some((collider) => segmentIntersectsBounds(fromPoint, toPoint, collider.bounds));
+}
+
+function tryResolveBuildingCollision(fromPoint, toPoint, buildingColliders) {
+  const colliders = normalizeBuildingColliders(buildingColliders);
+  if (colliders.length === 0) {
+    return null;
+  }
+
+  if (!movementBlockedByBuildingColliders(fromPoint, toPoint, colliders)) {
+    return null;
+  }
+
+  const slideXPoint = { x: toPoint.x, y: fromPoint.y };
+  const slideYPoint = { x: fromPoint.x, y: toPoint.y };
+  const slideCandidates = [];
+
+  if (!movementBlockedByBuildingColliders(fromPoint, slideXPoint, colliders)) {
+    slideCandidates.push({ point: slideXPoint, resolution: "building-slide-x" });
+  }
+  if (!movementBlockedByBuildingColliders(fromPoint, slideYPoint, colliders)) {
+    slideCandidates.push({ point: slideYPoint, resolution: "building-slide-y" });
+  }
+
+  if (slideCandidates.length > 0) {
+    slideCandidates.sort((a, b) => {
+      const aTravel = Math.hypot(a.point.x - fromPoint.x, a.point.y - fromPoint.y);
+      const bTravel = Math.hypot(b.point.x - fromPoint.x, b.point.y - fromPoint.y);
+      return bTravel - aTravel;
+    });
+
+    const bestSlide = slideCandidates[0];
+    if (Math.hypot(bestSlide.point.x - fromPoint.x, bestSlide.point.y - fromPoint.y) > BOUNDARY_EPSILON) {
+      return bestSlide;
+    }
+  }
+
+  return {
+    point: { x: fromPoint.x, y: fromPoint.y },
+    resolution: "building-rebound",
+  };
+}
+
+function applyBuildingCollision(fromPoint, resolved, buildingColliders, fallbackSectorId) {
+  const buildingResolution = tryResolveBuildingCollision(fromPoint, resolved.point, buildingColliders);
+  if (!buildingResolution) {
+    return resolved;
+  }
+
+  return {
+    point: buildingResolution.point,
+    sectorId: findSectorIdForPoint(buildingResolution.point) ?? resolved.sectorId ?? fallbackSectorId,
+    resolution: buildingResolution.resolution,
+  };
 }
 
 function inferActiveSectorId(currentSectorId, fromPoint, toPoint) {
@@ -212,7 +321,10 @@ function finalizeResolution(fromPoint, resolved, dt, activeSectorId) {
     vy: (resolved.point.y - fromPoint.y) / stepTime,
     sectorId: resolved.sectorId,
     transitioned: resolved.sectorId !== activeSectorId,
-    blocked: resolved.resolution === "rebound" || resolved.resolution === "fallback-clamp",
+    blocked:
+      resolved.resolution === "rebound" ||
+      resolved.resolution === "fallback-clamp" ||
+      resolved.resolution.startsWith("building-"),
     resolution: resolved.resolution,
   };
 }
@@ -257,7 +369,13 @@ export function resolveBoundaryMovement(options = {}) {
 
   const direct = tryResolveWithinSectors(fromPoint, toPoint, activeSectorId);
   if (direct) {
-    return finalizeResolution(fromPoint, direct, dt, activeSectorId);
+    const withBuildings = applyBuildingCollision(
+      fromPoint,
+      direct,
+      options.buildingColliders,
+      activeSectorId,
+    );
+    return finalizeResolution(fromPoint, withBuildings, dt, activeSectorId);
   }
 
   const slideX = tryResolveWithinSectors(fromPoint, { x: toPoint.x, y: fromPoint.y }, activeSectorId);
@@ -277,11 +395,16 @@ export function resolveBoundaryMovement(options = {}) {
       const slideResolution = bestSlide === slideX ? "slide-x" : "slide-y";
       return finalizeResolution(
         fromPoint,
-        {
+        applyBuildingCollision(
+          fromPoint,
+          {
           point: bestSlide.point,
           sectorId: bestSlide.sectorId,
           resolution: bestSlide.resolution === "lane" ? `${slideResolution}-lane` : slideResolution,
-        },
+          },
+          options.buildingColliders,
+          activeSectorId,
+        ),
         dt,
         activeSectorId,
       );

@@ -97,6 +97,25 @@ body {
     inset 0 0 0 1px rgba(255, 179, 164, 0.12);
 }
 
+.hud[data-tactic="break"] {
+  text-shadow: 0 0 10px rgba(144, 180, 206, 0.25);
+}
+
+.hud[data-tactic="funnel"] {
+  text-shadow: 0 0 10px rgba(125, 211, 167, 0.28);
+}
+
+.hud[data-tactic="pocket"] {
+  text-shadow: 0 0 12px rgba(255, 191, 105, 0.3);
+}
+
+.hud[data-pocket="active"] {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 30px rgba(28, 22, 9, 0.36),
+    inset 0 0 0 1px rgba(255, 225, 172, 0.18);
+}
+
 .overlay {
   position: absolute;
   inset: 0;

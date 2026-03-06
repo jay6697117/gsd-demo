@@ -25,6 +25,12 @@ import {
   createSpawnDirectorState,
   planSpawnSector,
 } from "./spawn-director.js";
+import {
+  buildWorldTacticsState,
+  filterSpawnCandidates,
+  getBuildingColliders,
+  WORLD_BUILDINGS,
+} from "./building-system.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -79,6 +85,7 @@ const LANE_STYLE_BY_KIND = Object.freeze({
   main: Object.freeze({ stroke: "rgba(255, 248, 179, 0.62)", width: 18, beaconColor: 0xffef9e }),
   bypass: Object.freeze({ stroke: "rgba(125, 241, 255, 0.5)", width: 10, beaconColor: 0x7df1ff }),
 });
+const WORLD_BUILDING_COLLIDERS = getBuildingColliders(WORLD_BUILDINGS);
 
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
@@ -312,7 +319,16 @@ const state = {
     webglAvailable: rendererRuntime.meta.webglAvailable,
     renderError: rendererRuntime.meta.renderError,
   },
-  world: createWorldTraversalState(),
+  world: {
+    ...createWorldTraversalState(),
+    buildings: WORLD_BUILDINGS,
+    tactics: buildWorldTacticsState({
+      currentSectorId: WORLD_SECTOR_IDS[0],
+      playerPosition: { x: 0, y: 0 },
+      buildings: WORLD_BUILDINGS,
+      sectorEnemyCounts: [],
+    }),
+  },
   spawnDirector: createSpawnDirectorState({
     sectorIds: WORLD_SECTOR_IDS,
     spawnCooldown: 1.2,
@@ -354,6 +370,8 @@ const world = {
   enemyRoot: new THREE.Group(),
   slashRoot: new THREE.Group(),
   particleRoot: new THREE.Group(),
+  buildingRoot: new THREE.Group(),
+  buildingVisuals: [],
   guideRoot: new THREE.Group(),
   arenaBounds: null,
   floor: null,
@@ -363,6 +381,7 @@ const world = {
 scene.add(world.enemyRoot);
 scene.add(world.slashRoot);
 scene.add(world.particleRoot);
+scene.add(world.buildingRoot);
 scene.add(world.guideRoot);
 
 buildWorld();
@@ -644,49 +663,60 @@ function resolveSpawnPointForSector(sectorId, lateralRoll = 0.5, depthRoll = 0.5
   const maxX = bounds.maxX - inset;
   const minY = bounds.minY + inset;
   const maxY = bounds.maxY - inset;
+  let primaryPoint = null;
 
   if (sectorId === "north") {
-    return {
+    primaryPoint = {
       x: randomRangeFromUnit(minX, maxX, lateralRoll),
       y: randomRangeFromUnit(minY, Math.min(minY + 2.1, maxY), depthRoll),
     };
-  }
-
-  if (sectorId === "east") {
-    return {
+  } else if (sectorId === "east") {
+    primaryPoint = {
       x: randomRangeFromUnit(Math.max(maxX - 2.1, minX), maxX, depthRoll),
       y: randomRangeFromUnit(minY, maxY, lateralRoll),
     };
-  }
-
-  if (sectorId === "south") {
-    return {
+  } else if (sectorId === "south") {
+    primaryPoint = {
       x: randomRangeFromUnit(minX, maxX, lateralRoll),
       y: randomRangeFromUnit(Math.max(maxY - 2.1, minY), maxY, depthRoll),
     };
+  } else {
+    const mainLanes = sector.lanes.filter((lane) => lane.kind === "main");
+    const laneIndex = Math.min(mainLanes.length - 1, Math.floor(lateralRoll * mainLanes.length));
+    const lane = mainLanes[Math.max(0, laneIndex)] || sector.lanes[0] || null;
+    if (!lane) {
+      primaryPoint = {
+        x: randomRangeFromUnit(minX, maxX, lateralRoll),
+        y: randomRangeFromUnit(minY, maxY, depthRoll),
+      };
+    } else {
+      const spread = (depthRoll - 0.5) * Math.max(0.6, lane.width * 0.65);
+      if (Math.abs(lane.entry.y - bounds.minY) < 0.15) {
+        primaryPoint = { x: clamp(lane.entry.x + spread, minX, maxX), y: minY + 0.55 };
+      } else if (Math.abs(lane.entry.y - bounds.maxY) < 0.15) {
+        primaryPoint = { x: clamp(lane.entry.x + spread, minX, maxX), y: maxY - 0.55 };
+      } else if (Math.abs(lane.entry.x - bounds.maxX) < 0.15) {
+        primaryPoint = { x: maxX - 0.55, y: clamp(lane.entry.y + spread, minY, maxY) };
+      } else {
+        primaryPoint = { x: minX + 0.55, y: clamp(lane.entry.y + spread, minY, maxY) };
+      }
+    }
   }
 
-  const mainLanes = sector.lanes.filter((lane) => lane.kind === "main");
-  const laneIndex = Math.min(mainLanes.length - 1, Math.floor(lateralRoll * mainLanes.length));
-  const lane = mainLanes[Math.max(0, laneIndex)] || sector.lanes[0] || null;
-  if (!lane) {
-    return {
-      x: randomRangeFromUnit(minX, maxX, lateralRoll),
-      y: randomRangeFromUnit(minY, maxY, depthRoll),
-    };
-  }
-
-  const spread = (depthRoll - 0.5) * Math.max(0.6, lane.width * 0.65);
-  if (Math.abs(lane.entry.y - bounds.minY) < 0.15) {
-    return { x: clamp(lane.entry.x + spread, minX, maxX), y: minY + 0.55 };
-  }
-  if (Math.abs(lane.entry.y - bounds.maxY) < 0.15) {
-    return { x: clamp(lane.entry.x + spread, minX, maxX), y: maxY - 0.55 };
-  }
-  if (Math.abs(lane.entry.x - bounds.maxX) < 0.15) {
-    return { x: maxX - 0.55, y: clamp(lane.entry.y + spread, minY, maxY) };
-  }
-  return { x: minX + 0.55, y: clamp(lane.entry.y + spread, minY, maxY) };
+  const candidates = [
+    primaryPoint,
+    { x: clamp(primaryPoint.x + 1.1, minX, maxX), y: primaryPoint.y },
+    { x: clamp(primaryPoint.x - 1.1, minX, maxX), y: primaryPoint.y },
+    { x: primaryPoint.x, y: clamp(primaryPoint.y + 1.1, minY, maxY) },
+    { x: primaryPoint.x, y: clamp(primaryPoint.y - 1.1, minY, maxY) },
+  ];
+  const safeCandidates = filterSpawnCandidates({
+    sectorId,
+    buildings: WORLD_BUILDINGS,
+    candidates,
+    padding: 0.9,
+  });
+  return safeCandidates[0] || primaryPoint;
 }
 
 function makeCanvasTexture(width, height, drawFn) {
@@ -714,13 +744,12 @@ function getPressureStyle(level = "low") {
   return READABILITY_PRESSURE_STYLE[level] || READABILITY_PRESSURE_STYLE.low;
 }
 
-function buildWorldReadabilityState() {
+function buildWorldReadabilityState(sectorEnemyCounts = buildSectorEnemyCounts({
+  sectorIds: WORLD_SECTOR_IDS,
+  enemies: state.enemies,
+})) {
   const currentSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
   const sector = getSectorById(currentSectorId) || getSectorById(WORLD_SECTOR_IDS[0]);
-  const sectorEnemyCounts = buildSectorEnemyCounts({
-    sectorIds: WORLD_SECTOR_IDS,
-    enemies: state.enemies,
-  });
   const sectorEnemyCount = getSectorCountById(sectorEnemyCounts, sector?.id ?? WORLD_SECTOR_IDS[0]);
   const mainLaneCount = sector?.lanes.filter((lane) => lane.kind === "main").length ?? 0;
   const bypassLaneCount = sector?.lanes.filter((lane) => lane.kind === "bypass").length ?? 0;
@@ -749,9 +778,22 @@ function buildWorldReadabilityState() {
 }
 
 function updateWorldReadabilityState() {
+  const sectorEnemyCounts = buildSectorEnemyCounts({
+    sectorIds: WORLD_SECTOR_IDS,
+    enemies: state.enemies,
+  });
+  const currentSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const tactics = buildWorldTacticsState({
+    currentSectorId,
+    playerPosition: { x: state.player.x, y: state.player.y },
+    buildings: WORLD_BUILDINGS,
+    sectorEnemyCounts,
+  });
   state.world = {
     ...(state.world || createWorldTraversalState()),
-    readability: buildWorldReadabilityState(),
+    buildings: WORLD_BUILDINGS,
+    tactics,
+    readability: buildWorldReadabilityState(sectorEnemyCounts),
   };
   return state.world.readability;
 }
@@ -873,6 +915,46 @@ function syncReadabilityGuides() {
   }
 }
 
+function syncBuildingVisuals() {
+  const currentSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const visited = new Set(state.world?.visitedSectorIds || []);
+  const tactics = state.world?.tactics || buildWorldTacticsState({
+    currentSectorId,
+    playerPosition: { x: state.player.x, y: state.player.y },
+    buildings: WORLD_BUILDINGS,
+    sectorEnemyCounts: buildSectorEnemyCounts({
+      sectorIds: WORLD_SECTOR_IDS,
+      enemies: state.enemies,
+    }),
+  });
+
+  for (const visual of world.buildingVisuals) {
+    const isCurrent = visual.sectorId === currentSectorId;
+    const isVisited = visited.has(visual.sectorId);
+    const cueMatch =
+      (tactics.cueLabel === "BREAK" && visual.role === "blocker") ||
+      (tactics.cueLabel === "FUNNEL" && visual.role === "funnel") ||
+      (tactics.cueLabel === "POCKET" && visual.role === "soft-cover");
+
+    const panelOpacity = isCurrent ? 0.42 : isVisited ? 0.24 : 0.12;
+    const outlineOpacity = isCurrent ? 0.82 : isVisited ? 0.42 : 0.22;
+    const markerOpacity = isCurrent ? 0.72 : isVisited ? 0.34 : 0.14;
+
+    visual.group.scale.setScalar(cueMatch ? 1.03 : 1);
+    for (const panel of visual.panels) {
+      panel.material.opacity = panelOpacity + (cueMatch ? 0.1 : 0);
+    }
+    for (const outline of visual.outlines) {
+      outline.material.opacity = outlineOpacity + (cueMatch ? 0.08 : 0);
+    }
+    for (const marker of visual.markers) {
+      marker.material.opacity =
+        markerOpacity + (visual.role === "soft-cover" && tactics.retreatPocketActive && isCurrent ? 0.18 : 0);
+      marker.scale.setScalar(visual.role === "soft-cover" && tactics.retreatPocketActive && isCurrent ? 1.26 : 1);
+    }
+  }
+}
+
 function pixelTextureFromPattern(pattern, palette) {
   const width = pattern[0].length;
   const height = pattern.length;
@@ -904,6 +986,91 @@ function createSprite(pattern, palette, worldSize) {
   sprite.scale.set(worldSize * aspect, worldSize, 1);
   sprite.position.set(0, 0.35, 0);
   return sprite;
+}
+
+function createBuildingPanel(bounds, fill) {
+  const width = Math.max(0.15, bounds.maxX - bounds.minX);
+  const height = Math.max(0.15, bounds.maxY - bounds.minY);
+  const geometry = new THREE.PlaneGeometry(width, height, 1, 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: fill,
+    transparent: true,
+    opacity: 0.28,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set((bounds.minX + bounds.maxX) / 2, 0.03, (bounds.minY + bounds.maxY) / 2);
+  mesh.renderOrder = 2;
+  return mesh;
+}
+
+function createBuildingOutline(bounds, edge) {
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(bounds.minX, 0.06, bounds.minY),
+    new THREE.Vector3(bounds.maxX, 0.06, bounds.minY),
+    new THREE.Vector3(bounds.maxX, 0.06, bounds.maxY),
+    new THREE.Vector3(bounds.minX, 0.06, bounds.maxY),
+  ]);
+  const material = new THREE.LineBasicMaterial({
+    color: edge,
+    transparent: true,
+    opacity: 0.44,
+  });
+  const line = new THREE.LineLoop(geometry, material);
+  line.renderOrder = 3;
+  return line;
+}
+
+function createBuildingMarker(anchor, accent) {
+  const geometry = new THREE.RingGeometry(0.08, 0.22, 16);
+  const material = new THREE.MeshBasicMaterial({
+    color: accent,
+    transparent: true,
+    opacity: 0.38,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(anchor.x, 0.08, anchor.y);
+  mesh.renderOrder = 4;
+  return mesh;
+}
+
+function createBuildingVisual(building) {
+  const group = new THREE.Group();
+  const panels = [];
+  const outlines = [];
+  const markers = [];
+  const fillColor = new THREE.Color(building.visual.fill);
+  const edgeColor = new THREE.Color(building.visual.edge);
+  const accentColor = new THREE.Color(building.visual.accent);
+
+  for (const collider of building.colliders) {
+    const panel = createBuildingPanel(collider.bounds, fillColor);
+    const outline = createBuildingOutline(collider.bounds, edgeColor);
+    panels.push(panel);
+    outlines.push(outline);
+    group.add(panel, outline);
+  }
+
+  for (const anchor of Object.values(building.anchors || {})) {
+    const marker = createBuildingMarker(anchor, accentColor);
+    markers.push(marker);
+    group.add(marker);
+  }
+
+  return {
+    buildingId: building.id,
+    sectorId: building.sectorId,
+    role: building.role,
+    group,
+    panels,
+    outlines,
+    markers,
+  };
 }
 
 function createGroundTexture() {
@@ -969,6 +1136,15 @@ function createGroundTexture() {
   });
 }
 
+function buildWorldBuildings() {
+  world.buildingVisuals = [];
+  for (const building of WORLD_BUILDINGS) {
+    const visual = createBuildingVisual(building);
+    world.buildingVisuals.push(visual);
+    world.buildingRoot.add(visual.group);
+  }
+}
+
 function buildWorld() {
   const floorGeometry = new THREE.PlaneGeometry(GROUND_WIDTH, GROUND_HEIGHT, 1, 1);
   const floorMaterial = new THREE.MeshBasicMaterial({ map: createGroundTexture() });
@@ -991,6 +1167,7 @@ function buildWorld() {
 
   world.playerSprite = createSprite(PATTERN_PLAYER, PALETTE_PLAYER, 2.7);
   scene.add(world.playerSprite);
+  buildWorldBuildings();
   buildReadabilityGuides();
 }
 
@@ -1264,7 +1441,11 @@ function updateWorldTraversalFromPlayerPosition(nextSectorHint = null) {
     typeof nextSectorHint === "string"
       ? nextSectorHint
       : resolveSectorIdForPosition({ x: state.player.x, y: state.player.y }, state.world?.currentSectorId);
-  state.world = advanceWorldTraversalState(state.world, nextSectorId);
+  const traversalState = advanceWorldTraversalState(state.world, nextSectorId);
+  state.world = {
+    ...(state.world || {}),
+    ...traversalState,
+  };
 }
 
 function startRun() {
@@ -1287,7 +1468,17 @@ function startRun() {
   state.player.invulnerable = 0;
   state.player.facingX = 0;
   state.player.facingY = -1;
-  state.world = createWorldTraversalState(resolveSectorIdForPosition({ x: state.player.x, y: state.player.y }));
+  const initialSectorId = resolveSectorIdForPosition({ x: state.player.x, y: state.player.y });
+  state.world = {
+    ...createWorldTraversalState(initialSectorId),
+    buildings: WORLD_BUILDINGS,
+    tactics: buildWorldTacticsState({
+      currentSectorId: initialSectorId,
+      playerPosition: { x: state.player.x, y: state.player.y },
+      buildings: WORLD_BUILDINGS,
+      sectorEnemyCounts: [],
+    }),
+  };
   state.gameOverSummary = "";
   state.shakeTime = 0;
   state.shakeStrength = 0;
@@ -1405,6 +1596,7 @@ function applyPlayerInput(dt) {
     velocity: { x: desiredVx, y: desiredVy },
     dt,
     currentSectorId: state.world?.currentSectorId,
+    buildingColliders: WORLD_BUILDING_COLLIDERS,
     fallbackBounds: PLAYER_MOVEMENT_FALLBACK_BOUNDS,
   });
 
@@ -1616,6 +1808,16 @@ function updateHud() {
   const bannerText = state.feedback.bannerTimer > 0 ? state.feedback.bannerText : "-";
   const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
   const readability = state.world?.readability || buildWorldReadabilityState();
+  const tactics = state.world?.tactics || buildWorldTacticsState({
+    currentSectorId: state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0],
+    playerPosition: { x: state.player.x, y: state.player.y },
+    buildings: WORLD_BUILDINGS,
+    sectorEnemyCounts: buildSectorEnemyCounts({
+      sectorIds: WORLD_SECTOR_IDS,
+      enemies: state.enemies,
+    }),
+  });
+  const tacticCounts = Object.fromEntries(tactics.roleCounts.map((entry) => [entry.role, entry.count]));
 
   let modeText = "ACTIVE";
   if (state.mode === "paused") {
@@ -1633,6 +1835,8 @@ function updateHud() {
   });
   const fullscreenText = state.control.fullscreen.isFullscreen ? "FS ON" : "FS OFF";
   hud.dataset.pressure = readability.pressureLevel;
+  hud.dataset.tactic = String(tactics.cueLabel || "open").toLowerCase();
+  hud.dataset.pocket = tactics.retreatPocketActive ? "active" : "idle";
 
   hud.textContent =
     `HP ${hp}/${PLAYER_MAX_HP}\n` +
@@ -1640,6 +1844,7 @@ function updateHud() {
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
     `Sector ${readability.sectorLabel}  Pressure ${readability.pressureLabel}\n` +
+    `Tactic ${tactics.cueLabel}  B${tacticCounts.blocker ?? 0} F${tacticCounts.funnel ?? 0} S${tacticCounts["soft-cover"] ?? 0}\n` +
     `${modeText}  ${focusText}  ${fullscreenText}\n` +
     `Cue ${bannerText}`;
 }
@@ -1675,6 +1880,7 @@ function syncVisuals() {
   const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
+  syncBuildingVisuals();
   syncReadabilityGuides();
   updateFeedbackOverlay();
 

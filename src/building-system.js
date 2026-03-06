@@ -1,4 +1,5 @@
 import {
+  BUILDING_ARCHETYPE_IDS,
   BUILDING_ARCHETYPES,
   BUILDING_LAYOUT_PRESETS,
 } from "./building-catalog.js";
@@ -252,4 +253,57 @@ export function summarizeBuildingsForSnapshot(buildings = WORLD_BUILDINGS) {
       maxY: Number(toFiniteNumber(building.bounds?.maxY, 0).toFixed(3)),
     },
   }));
+}
+
+export function buildWorldTacticsState({
+  currentSectorId,
+  playerPosition = { x: 0, y: 0 },
+  buildings = WORLD_BUILDINGS,
+  sectorEnemyCounts = [],
+} = {}) {
+  const sectorBuildings = getBuildingsForSector(buildings, currentSectorId);
+  const roleCounts = BUILDING_ARCHETYPE_IDS.map((role) => ({
+    role,
+    count: sectorBuildings.filter((building) => building.role === role).length,
+  }));
+  const enemyCountEntry = Array.isArray(sectorEnemyCounts)
+    ? sectorEnemyCounts.find((entry) => entry?.sectorId === currentSectorId)
+    : null;
+  const sectorEnemyCount = Math.max(0, Math.floor(toFiniteNumber(enemyCountEntry?.count, 0)));
+
+  const softCoverBuildings = sectorBuildings.filter((building) => building.role === "soft-cover");
+  const retreatPocketActive = softCoverBuildings.some((building) => {
+    const pocket = building.anchors?.retreatPocket;
+    if (!pocket) {
+      return false;
+    }
+    return Math.hypot(playerPosition.x - pocket.x, playerPosition.y - pocket.y) <= 1.45;
+  });
+
+  const lineBreakAvailable =
+    roleCounts.find((entry) => entry.role === "blocker")?.count > 0 ||
+    roleCounts.find((entry) => entry.role === "soft-cover")?.count > 0;
+  const funnelAvailable = roleCounts.find((entry) => entry.role === "funnel")?.count > 0;
+  const retreatPocketAvailable = softCoverBuildings.length > 0;
+
+  let cueLabel = "OPEN";
+  if (retreatPocketActive) {
+    cueLabel = "POCKET";
+  } else if (funnelAvailable) {
+    cueLabel = "FUNNEL";
+  } else if (lineBreakAvailable) {
+    cueLabel = "BREAK";
+  }
+
+  return freezeDeep({
+    currentSectorId: typeof currentSectorId === "string" ? currentSectorId : WORLD_SECTOR_IDS[0] ?? "hub",
+    buildingIds: sectorBuildings.map((building) => building.id),
+    roleCounts,
+    sectorEnemyCount,
+    lineBreakAvailable,
+    funnelAvailable,
+    retreatPocketAvailable,
+    retreatPocketActive,
+    cueLabel,
+  });
 }
