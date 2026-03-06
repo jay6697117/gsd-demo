@@ -42,7 +42,7 @@
 **Goal:** Integrate tactical building archetypes with stable collision and steering behavior.
 **Execution Status:** Planned
 **Verification:** Pending (`07-VERIFICATION.md`)
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 **Requirements**: [BLD-01, BLD-02, BLD-03, BLD-04]
 
