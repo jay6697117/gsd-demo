@@ -40,9 +40,9 @@
 
 **Phase Goal:** Integrate tactical building archetypes with stable collision and steering behavior.
 **Goal:** Integrate tactical building archetypes with stable collision and steering behavior.
-**Execution Status:** Pending
+**Execution Status:** Planned
 **Verification:** Pending (`07-VERIFICATION.md`)
-**Plans:** 0/0 plans complete
+**Plans:** 0/4 plans executed
 
 **Requirements**: [BLD-01, BLD-02, BLD-03, BLD-04]
 
@@ -200,4 +200,4 @@
 | AUTO-08 | Phase 11 |
 
 ---
-*Roadmap status: Phase 06 complete, Phase 07 ready to plan (milestone v1.1 active)*
+*Roadmap status: Phase 07 planned, ready to execute (milestone v1.1 active)*
