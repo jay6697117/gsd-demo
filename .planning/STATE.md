@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-current_phase: 09
-current_phase_name: XP & Level Progression Core
-current_plan: 1
-status: ready_to_execute
-stopped_at: Phase 09 ready to execute
-last_updated: "2026-03-06T10:02:47Z"
+current_phase: 10
+current_phase_name: Skill/Talent Choice Engine
+current_plan: 0
+status: ready_to_plan
+stopped_at: Phase 10 ready to plan
+last_updated: "2026-03-06T15:44:12Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 50
+  completed_phases: 4
+  total_plans: 16
+  completed_plans: 16
+  percent: 67
 ---
 
 # STATE: PokeThrees Hunter
@@ -24,15 +24,15 @@ progress:
 ## Current Position
 
 - **Current Milestone:** v1.1 World & Growth Overhaul
-- **Current Phase:** 09
-- **Current Phase Name:** XP & Level Progression Core
+- **Current Phase:** 10
+- **Current Phase Name:** Skill/Talent Choice Engine
 - **Total Phases:** 6
-- **Current Plan:** 1
-- **Total Plans in Phase:** 4
-- **Status:** Ready to execute
+- **Current Plan:** 0
+- **Total Plans in Phase:** 0
+- **Status:** Ready to plan
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Planned Phase 09 with 4 plans in 4 waves
-- **Progress:** [█████░░░░░] 50%
+- **Last Activity Description:** Completed Phase 09 with 4 plans and passed phase verification
+- **Progress:** [███████░░░] 67%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -53,6 +53,10 @@ progress:
 | Phase 08 P02 | 3 min | 2 tasks | 8 files |
 | Phase 08 P03 | 4 min | 2 tasks | 6 files |
 | Phase 08 P04 | 4 min | 2 tasks | 4 files |
+| Phase 09 P01 | 3 min | 2 tasks | 3 files |
+| Phase 09 P02 | 3 min | 2 tasks | 3 files |
+| Phase 09 P03 | 4 min | 2 tasks | 5 files |
+| Phase 09 P04 | 4 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -84,6 +88,8 @@ progress:
 - [Phase 08]: Effective player combat stats are derived from base constants plus equipment deltas. — This keeps gear changes deterministic and leaves room for future progression layers without mutating base tuning constants.
 - [Phase 09]: XP progression uses dedicated XP values and explicit threshold tables instead of reusing score. — This keeps progression pacing tunable without coupling it to combat scoring balance.
 - [Phase 09]: Level-up arrivals queue pending events and surface through HUD cues without pausing combat. — This preserves existing control semantics while preparing a deterministic event source for Phase 10 choice consumption.
+- [Phase 09]: Progression observability ships through HUD text, banner cues, and `progressionState` snapshot fields from the same runtime source. — This keeps browser tests and text-state assertions aligned without adding a second debug export path.
+- [Phase 09]: Restart parity is verified through the real `gameover -> restart -> startRun` flow instead of a privileged reset hook. — This keeps future choice-panel work anchored to the same reset path players actually use.
 
 ### Blockers
 
@@ -91,8 +97,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-06T03:32:37.607Z
-- **Stopped At:** Phase 09 ready to execute
+- **Last session:** 2026-03-06T15:44:12Z
+- **Stopped At:** Phase 10 ready to plan
 - **Resume File:** None
 
 ## Project Reference

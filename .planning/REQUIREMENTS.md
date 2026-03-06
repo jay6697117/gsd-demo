@@ -30,11 +30,11 @@
 
 ### Progression
 
-- [ ] **PROG-01**: User gains XP from monster kills.
-- [ ] **PROG-02**: User levels up when XP crosses configurable thresholds.
-- [ ] **PROG-03**: User receives exactly one level-up decision event per threshold crossing.
-- [ ] **PROG-04**: User sees level and XP progress in HUD during combat.
-- [ ] **PROG-05**: New run/restart resets run-local progression state without leaking previous run values.
+- [x] **PROG-01**: User gains XP from monster kills.
+- [x] **PROG-02**: User levels up when XP crosses configurable thresholds.
+- [x] **PROG-03**: User receives exactly one level-up decision event per threshold crossing.
+- [x] **PROG-04**: User sees level and XP progress in HUD during combat.
+- [x] **PROG-05**: New run/restart resets run-local progression state without leaking previous run values.
 
 ### Skills & Talents
 
@@ -92,11 +92,11 @@
 | LOOT-03 | Phase 08 | Complete |
 | LOOT-04 | Phase 08 | Complete |
 | LOOT-05 | Phase 08 | Complete |
-| PROG-01 | Phase 09 | Pending |
-| PROG-02 | Phase 09 | Pending |
-| PROG-03 | Phase 09 | Pending |
-| PROG-04 | Phase 09 | Pending |
-| PROG-05 | Phase 09 | Pending |
+| PROG-01 | Phase 09 | Complete |
+| PROG-02 | Phase 09 | Complete |
+| PROG-03 | Phase 09 | Complete |
+| PROG-04 | Phase 09 | Complete |
+| PROG-05 | Phase 09 | Complete |
 | TAL-01 | Phase 10 | Pending |
 | TAL-02 | Phase 10 | Pending |
 | TAL-03 | Phase 10 | Pending |
@@ -116,4 +116,4 @@
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-06 after Phase 08 completion*
+*Last updated: 2026-03-06 after Phase 09 completion*
