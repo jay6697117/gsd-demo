@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 07
 current_phase_name: Building Tactical Layer
 current_plan: 4
-status: executing
-stopped_at: Phase 07 plan 04 ready
-last_updated: "2026-03-06T03:28:03.021Z"
+status: verifying
+stopped_at: Phase 07 ready for verification
+last_updated: "2026-03-06T03:32:37.609Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
-  percent: 94
+  completed_plans: 8
+  percent: 100
 ---
 
 # STATE: PokeThrees Hunter
@@ -29,10 +29,10 @@ progress:
 - **Total Phases:** 6
 - **Current Plan:** 4
 - **Total Plans in Phase:** 4
-- **Status:** Ready to execute
+- **Status:** Phase complete — ready for verification
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Completed Phase 07 Plan 03: deterministic enemy building steering
-- **Progress:** [█████████░] 94%
+- **Last Activity Description:** Completed Phase 07 Plan 04: tactical building verification
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -48,6 +48,7 @@ progress:
 | Phase 06 P04 | 12 min | 3 tasks | 5 files |
 | Phase 07 P01 | 18 min | 2 tasks | 5 files |
 | Phase 07 P03 | 11 min | 2 tasks | 3 files |
+| Phase 07 P04 | 4 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ progress:
 - [Phase 07]: Player movement now resolves against building colliders while enemy steering stays deferred to 07-03. — This keeps the new tactical layer visible and usable immediately without coupling it to unfinished enemy navigation changes.
 - [Phase 07]: Kept enemy steering inside pure building-system helpers so runtime and tests share one deterministic contract. — One pure steering boundary keeps blocker, funnel, soft-cover, and replay assertions aligned for BLD-03.
 - [Phase 07]: Used edge-clearance guide points plus nearest-exit recovery instead of navmesh, A*, or random detours. — Phase 07 needs deterministic obstacle pursuit, not heavier pathfinding state or non-repeatable routing.
+- [Phase 07]: Serialized world.tactics through determinism-harness rather than adding a second debug/export path in main.js. — One snapshot bridge keeps building and tactical evidence machine-readable without duplicating runtime export code.
+- [Phase 07]: Drove the tactical E2E route through fixed-step key holds and south-pocket activation to keep building evidence deterministic. — advanceTime-based routing proves building use in a real browser while remaining replayable for BLD-04.
 
 ### Blockers
 
@@ -78,8 +81,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-06T03:28:03.019Z
-- **Stopped At:** Phase 07 plan 04 ready
+- **Last session:** 2026-03-06T03:32:37.607Z
+- **Stopped At:** Phase 07 ready for verification
 - **Resume File:** None
 
 ## Project Reference
