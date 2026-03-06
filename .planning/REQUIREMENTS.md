@@ -15,8 +15,8 @@
 
 ### Buildings
 
-- [ ] **BLD-01**: User can encounter at least 3 building archetypes with distinct tactical behavior (`blocker`, `funnel`, `soft-cover`).
-- [ ] **BLD-02**: User can leverage buildings to reduce immediate pressure (line-break, kite pivot, retreat window).
+- [x] **BLD-01**: User can encounter at least 3 building archetypes with distinct tactical behavior (`blocker`, `funnel`, `soft-cover`).
+- [x] **BLD-02**: User can leverage buildings to reduce immediate pressure (line-break, kite pivot, retreat window).
 - [x] **BLD-03**: Enemy steering handles building obstacles without persistent stuck/loop behavior.
 - [x] **BLD-04**: Building interactions do not break deterministic combat state transitions.
 
@@ -83,8 +83,8 @@
 | MAP-02 | Phase 06 | Complete |
 | MAP-03 | Phase 06 | Complete |
 | MAP-04 | Phase 06 | Complete |
-| BLD-01 | Phase 07 | Pending |
-| BLD-02 | Phase 07 | Pending |
+| BLD-01 | Phase 07 | Complete |
+| BLD-02 | Phase 07 | Complete |
 | BLD-03 | Phase 07 | Complete |
 | BLD-04 | Phase 07 | Complete |
 | LOOT-01 | Phase 08 | Pending |
