@@ -1,3 +1,4 @@
+import { summarizeBuildingsForSnapshot } from "./building-system.js";
 import { buildWorldTraversalSummary } from "./world-sectors.js";
 
 export const DETERMINISM_SCHEMA_VERSION = "1.0.0";
@@ -39,6 +40,10 @@ function normalizeOrderedEntries(entries, valueKey) {
       sectorId: entry.sectorId,
       [valueKey]: valueKey === "count" ? Math.floor(toFinite(entry?.[valueKey], 0)) : toRounded(entry?.[valueKey], 6),
     }));
+}
+
+function normalizeBuildingSummary(buildings) {
+  return summarizeBuildingsForSnapshot(Array.isArray(buildings) ? buildings : []);
 }
 
 export function computeAdvanceSteps(ms, fixedStepSeconds = DEFAULT_FIXED_STEP_SECONDS) {
@@ -105,6 +110,7 @@ export function buildDeterministicSnapshot({
     nextSpawnIn: toRounded(currentState.spawnCooldown, 3),
     world: {
       ...worldSummary,
+      buildings: normalizeBuildingSummary(world.buildings),
       readability: {
         sectorLabel:
           typeof worldReadability.sectorLabel === "string"

@@ -65,6 +65,22 @@ function buildMockState() {
       currentSectorId: "hub",
       visitedSectorIds: ["hub", "north", "east"],
       transitionSeq: 3,
+      buildings: [
+        {
+          id: "hub-blocker-01",
+          sectorId: "hub",
+          archetypeId: "blocker",
+          role: "blocker",
+          shape: "compound-rect",
+          colliders: [{}, {}],
+          bounds: {
+            minX: -4.7,
+            maxX: -1.7,
+            minY: -0.9,
+            maxY: 0.9,
+          },
+        },
+      ],
       readability: {
         sectorLabel: "HUB",
         pressureLevel: "medium",
@@ -149,6 +165,9 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(Array.isArray(snapshot.inputState.pressedKeys), true);
   assert.equal(snapshot.inputState.edgeCount, 1);
   assert.deepEqual(snapshot.world.visitedSectorIds, ["hub", "north", "east"]);
+  assert.equal(Array.isArray(snapshot.world.buildings), true);
+  assert.equal(snapshot.world.buildings[0].id, "hub-blocker-01");
+  assert.equal(snapshot.world.buildings[0].colliderCount, 2);
   assert.equal(snapshot.world.readability.sectorLabel, "HUB");
   assert.equal(snapshot.world.readability.pressureLevel, "medium");
   assert.equal(snapshot.world.readability.pressureLabel, "TENSE");
