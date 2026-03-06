@@ -65,6 +65,28 @@ function buildMockState() {
       currentSectorId: "hub",
       visitedSectorIds: ["hub", "north", "east"],
       transitionSeq: 3,
+      breakables: [
+        {
+          id: "hub-crate-01",
+          sectorId: "hub",
+          archetypeId: "crate",
+          x: 2.8,
+          y: -0.6,
+          hp: 21,
+          maxHp: 21,
+          broken: false,
+        },
+        {
+          id: "north-cache-01",
+          sectorId: "north",
+          archetypeId: "cache",
+          x: -1.8,
+          y: -11.9,
+          hp: 0,
+          maxHp: 34,
+          broken: true,
+        },
+      ],
       buildings: [
         {
           id: "hub-blocker-01",
@@ -180,6 +202,18 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(Array.isArray(snapshot.inputState.pressedKeys), true);
   assert.equal(snapshot.inputState.edgeCount, 1);
   assert.deepEqual(snapshot.world.visitedSectorIds, ["hub", "north", "east"]);
+  assert.equal(Array.isArray(snapshot.world.breakables), true);
+  assert.deepEqual(snapshot.world.breakables[0], {
+    id: "hub-crate-01",
+    sectorId: "hub",
+    archetypeId: "crate",
+    maxHp: 21,
+    hp: 21,
+    broken: false,
+    x: 2.8,
+    y: -0.6,
+  });
+  assert.equal(snapshot.world.breakables[1].broken, true);
   assert.equal(Array.isArray(snapshot.world.buildings), true);
   assert.equal(snapshot.world.buildings[0].id, "hub-blocker-01");
   assert.equal(snapshot.world.buildings[0].colliderCount, 2);

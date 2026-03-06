@@ -1,4 +1,5 @@
 import { summarizeBuildingsForSnapshot } from "./building-system.js";
+import { summarizeBreakablesForSnapshot } from "./breakable-system.js";
 import { buildWorldTraversalSummary } from "./world-sectors.js";
 
 export const DETERMINISM_SCHEMA_VERSION = "1.0.0";
@@ -44,6 +45,10 @@ function normalizeOrderedEntries(entries, valueKey) {
 
 function normalizeBuildingSummary(buildings) {
   return summarizeBuildingsForSnapshot(Array.isArray(buildings) ? buildings : []);
+}
+
+function normalizeBreakableSummary(breakables) {
+  return summarizeBreakablesForSnapshot(Array.isArray(breakables) ? breakables : []);
 }
 
 function normalizeWorldTactics(tactics) {
@@ -135,6 +140,7 @@ export function buildDeterministicSnapshot({
     nextSpawnIn: toRounded(currentState.spawnCooldown, 3),
     world: {
       ...worldSummary,
+      breakables: normalizeBreakableSummary(world.breakables),
       buildings: normalizeBuildingSummary(world.buildings),
       tactics: normalizeWorldTactics(world.tactics),
       readability: {

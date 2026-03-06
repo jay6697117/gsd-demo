@@ -32,6 +32,7 @@ import {
   planBuildingAwareSteering,
   WORLD_BUILDINGS,
 } from "./building-system.js";
+import { createWorldBreakables, resolveBreakableAttackStep } from "./breakable-system.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -322,6 +323,7 @@ const state = {
   },
   world: {
     ...createWorldTraversalState(),
+    breakables: createWorldBreakables(),
     buildings: WORLD_BUILDINGS,
     tactics: buildWorldTacticsState({
       currentSectorId: WORLD_SECTOR_IDS[0],
@@ -371,6 +373,8 @@ const world = {
   enemyRoot: new THREE.Group(),
   slashRoot: new THREE.Group(),
   particleRoot: new THREE.Group(),
+  breakableRoot: new THREE.Group(),
+  breakableVisuals: [],
   buildingRoot: new THREE.Group(),
   buildingVisuals: [],
   guideRoot: new THREE.Group(),
@@ -382,6 +386,7 @@ const world = {
 scene.add(world.enemyRoot);
 scene.add(world.slashRoot);
 scene.add(world.particleRoot);
+scene.add(world.breakableRoot);
 scene.add(world.buildingRoot);
 scene.add(world.guideRoot);
 
@@ -956,6 +961,110 @@ function syncBuildingVisuals() {
   }
 }
 
+function createBreakablePanel(breakable, fill) {
+  const geometry = new THREE.PlaneGeometry(breakable.size.width, breakable.size.height, 1, 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: fill,
+    transparent: true,
+    opacity: 0.58,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(breakable.x, 0.045, breakable.y);
+  mesh.renderOrder = 3;
+  return mesh;
+}
+
+function createBreakableOutline(breakable, edge) {
+  const halfWidth = breakable.size.width / 2;
+  const halfHeight = breakable.size.height / 2;
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(breakable.x - halfWidth, 0.07, breakable.y - halfHeight),
+    new THREE.Vector3(breakable.x + halfWidth, 0.07, breakable.y - halfHeight),
+    new THREE.Vector3(breakable.x + halfWidth, 0.07, breakable.y + halfHeight),
+    new THREE.Vector3(breakable.x - halfWidth, 0.07, breakable.y + halfHeight),
+  ]);
+  const material = new THREE.LineBasicMaterial({
+    color: edge,
+    transparent: true,
+    opacity: 0.8,
+  });
+  const line = new THREE.LineLoop(geometry, material);
+  line.renderOrder = 4;
+  return line;
+}
+
+function createBreakableAccent(breakable, accent) {
+  const geometry = new THREE.RingGeometry(0.09, 0.24, 16);
+  const material = new THREE.MeshBasicMaterial({
+    color: accent,
+    transparent: true,
+    opacity: 0.42,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(breakable.x, 0.08, breakable.y);
+  mesh.renderOrder = 5;
+  return mesh;
+}
+
+function createBreakableVisual(breakable) {
+  const group = new THREE.Group();
+  const fillColor = new THREE.Color(breakable.visual.fill);
+  const edgeColor = new THREE.Color(breakable.visual.edge);
+  const accentColor = new THREE.Color(breakable.visual.accent);
+  const panel = createBreakablePanel(breakable, fillColor);
+  const outline = createBreakableOutline(breakable, edgeColor);
+  const accent = createBreakableAccent(breakable, accentColor);
+  group.add(panel, outline, accent);
+
+  return {
+    breakableId: breakable.id,
+    sectorId: breakable.sectorId,
+    group,
+    panel,
+    outline,
+    accent,
+  };
+}
+
+function buildWorldBreakables() {
+  world.breakableVisuals = [];
+  for (const breakable of state.world?.breakables || []) {
+    const visual = createBreakableVisual(breakable);
+    world.breakableVisuals.push(visual);
+    world.breakableRoot.add(visual.group);
+  }
+}
+
+function syncBreakableVisuals() {
+  const currentSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const visited = new Set(state.world?.visitedSectorIds || []);
+  const breakablesById = new Map((state.world?.breakables || []).map((breakable) => [breakable.id, breakable]));
+
+  for (const visual of world.breakableVisuals) {
+    const breakable = breakablesById.get(visual.breakableId);
+    if (!breakable) {
+      visual.group.visible = false;
+      continue;
+    }
+
+    const isCurrent = visual.sectorId === currentSectorId;
+    const isVisited = visited.has(visual.sectorId);
+    const isBroken = Boolean(breakable.broken);
+    visual.group.visible = true;
+    visual.group.scale.setScalar(isBroken ? 0.82 : isCurrent ? 1.05 : 1);
+
+    visual.panel.material.opacity = isBroken ? 0.08 : isCurrent ? 0.66 : isVisited ? 0.42 : 0.24;
+    visual.outline.material.opacity = isBroken ? 0.14 : isCurrent ? 0.92 : isVisited ? 0.56 : 0.32;
+    visual.accent.material.opacity = isBroken ? 0.06 : isCurrent ? 0.52 : isVisited ? 0.28 : 0.14;
+  }
+}
+
 function pixelTextureFromPattern(pattern, palette) {
   const width = pattern[0].length;
   const height = pattern.length;
@@ -1168,6 +1277,7 @@ function buildWorld() {
 
   world.playerSprite = createSprite(PATTERN_PLAYER, PALETTE_PLAYER, 2.7);
   scene.add(world.playerSprite);
+  buildWorldBreakables();
   buildWorldBuildings();
   buildReadabilityGuides();
 }
@@ -1372,6 +1482,28 @@ function triggerKillFeedback(x, y) {
   addHitShake(0.44, 0.16);
 }
 
+function triggerBreakableFeedback(x, y, destroyed = false) {
+  if (destroyed) {
+    spawnParticles(x, y, 10, 0x9edcff, {
+      priority: "kill",
+      speedMin: 2.4,
+      speedMax: 5.2,
+      lifeMin: 0.2,
+      lifeMax: 0.48,
+    });
+    setCenterBanner("PROP DOWN", "chain", 0.4);
+    return;
+  }
+
+  spawnParticles(x, y, 4, 0xf7c58f, {
+    priority: "hit",
+    speedMin: 1.5,
+    speedMax: 3.4,
+    lifeMin: 0.16,
+    lifeMax: 0.3,
+  });
+}
+
 function triggerMilestoneFeedback(killsThisSwing, chainValue) {
   if (killsThisSwing >= 3) {
     setCenterBanner("TRIPLE KO", "kill", 0.66, true);
@@ -1473,8 +1605,10 @@ function startRun() {
   state.player.facingX = 0;
   state.player.facingY = -1;
   const initialSectorId = resolveSectorIdForPosition({ x: state.player.x, y: state.player.y });
+  const worldBreakables = createWorldBreakables();
   state.world = {
     ...createWorldTraversalState(initialSectorId),
+    breakables: worldBreakables,
     buildings: WORLD_BUILDINGS,
     tactics: buildWorldTacticsState({
       currentSectorId: initialSectorId,
@@ -1664,6 +1798,19 @@ function doAttack() {
     hitMoments.push({ x: enemy.x, y: enemy.y });
   }
 
+  const breakableResolution = resolveBreakableAttackStep({
+    breakables: state.world?.breakables || [],
+    attackOrigin: { x: state.player.x, y: state.player.y },
+    attackFacing: { x: state.player.facingX, y: state.player.facingY },
+    attackRadius: PLAYER_ATTACK_RADIUS,
+    attackDamage: PLAYER_ATTACK_DAMAGE,
+    frontDotThreshold: PLAYER_ATTACK_FRONT_DOT_THRESHOLD,
+  });
+  state.world = {
+    ...(state.world || {}),
+    breakables: breakableResolution.breakables,
+  };
+
   const survivors = [];
   const killMoments = [];
   for (const enemy of orderedEnemies) {
@@ -1692,6 +1839,12 @@ function doAttack() {
 
   for (const hit of hitMoments) {
     triggerHitFeedback(hit.x, hit.y);
+  }
+  for (const breakable of breakableResolution.hitBreakables) {
+    triggerBreakableFeedback(breakable.x, breakable.y, false);
+  }
+  for (const breakable of breakableResolution.destroyedBreakables) {
+    triggerBreakableFeedback(breakable.x, breakable.y, true);
   }
 
   if (killMoments.length > 0) {
@@ -1893,6 +2046,7 @@ function syncVisuals() {
   const shakeZ = state.shakeTime > 0 ? randomRangeVisual(-state.shakeStrength, state.shakeStrength) : 0;
   camera.position.x = shakeX;
   camera.position.z = shakeZ;
+  syncBreakableVisuals();
   syncBuildingVisuals();
   syncReadabilityGuides();
   updateFeedbackOverlay();
