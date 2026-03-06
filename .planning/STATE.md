@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 10
 current_phase_name: Skill/Talent Choice Engine
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-06T17:16:12Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-06T17:22:09Z"
 last_activity: 2026-03-07
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 20
-  completed_plans: 18
-  percent: 90
+  completed_plans: 19
+  percent: 95
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 10
 - **Current Phase Name:** Skill/Talent Choice Engine
 - **Total Phases:** 6
-- **Current Plan:** 3
+- **Current Plan:** 4
 - **Total Plans in Phase:** 4
 - **Status:** Executing
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Completed 10-02-PLAN.md with deterministic level-up choice mode and input-safe resume semantics
-- **Progress:** [█████████░] 90%
+- **Last Activity Description:** Completed 10-03-PLAN.md with immediate upgrade effects and schema-bumped choice snapshot evidence
+- **Progress:** [██████████] 95%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -59,6 +59,7 @@ progress:
 | Phase 09 P04 | 4 min | 2 tasks | 2 files |
 | Phase 10 P1 | 10 min | 2 tasks | 3 files |
 | Phase 10 P2 | 13 min | 2 tasks | 6 files |
+| Phase 10 P3 | 6 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,8 @@ progress:
 - [Phase 10]: Offer generation is deterministic and isolated behind createOfferSeed() plus pure filtering/generation helpers. — An isolated offer RNG stream prevents reroll and choice generation from perturbing spawn, loot, or progression replay contracts.
 - [Phase 10]: Pending level-up events stay queued until the player confirms one choice from an active modal session. — This preserves deterministic event identity for reroll, snapshot, and exactly-one-consume semantics.
 - [Phase 10]: `equip_compare` must win over `levelup_choice`, and `KeyP` is ignored while the level-up panel is active. — Modal priority and pause immunity are part of the runtime contract, not optional UI behavior.
+- [Phase 10]: Selected upgrades now flow through explicit effective-value helpers instead of mutating player base constants. — This keeps combat tuning composable across equipment, upgrades, and later progression layers.
+- [Phase 10]: Determinism schema `1.3.0` adds `levelUpState` and `upgradeState` as first-class snapshot sections. — Browser and contract tests now have one canonical text-state source for offer and applied-upgrade evidence.
 
 ### Blockers
 
@@ -103,8 +106,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-06T17:16:12Z
-- **Stopped At:** Completed 10-02-PLAN.md
+- **Last session:** 2026-03-06T17:22:09Z
+- **Stopped At:** Completed 10-03-PLAN.md
 - **Resume File:** None
 
 ## Project Reference
