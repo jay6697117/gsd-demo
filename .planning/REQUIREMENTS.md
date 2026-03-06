@@ -43,7 +43,7 @@
 - [x] **TAL-03**: Choice pool supports both skill-type and talent-type upgrades with eligibility/exclusion constraints.
 - [x] **TAL-04**: Duplicate or invalid options are filtered out from a single choice panel.
 - [x] **TAL-05**: Applied upgrades produce immediate measurable combat-state impact.
-- [ ] **TAL-06**: Upgrade flow supports advanced high-complexity controls (reroll and pool constraints) with deterministic behavior.
+- [x] **TAL-06**: Upgrade flow supports advanced high-complexity controls (reroll and pool constraints) with deterministic behavior.
 
 ### Determinism & Testability
 
@@ -102,7 +102,7 @@
 | TAL-03 | Phase 10 | Complete |
 | TAL-04 | Phase 10 | Complete |
 | TAL-05 | Phase 10 | Complete |
-| TAL-06 | Phase 10 | Pending |
+| TAL-06 | Phase 10 | Complete |
 | AUTO-04 | Phase 11 | Pending |
 | AUTO-05 | Phase 11 | Pending |
 | AUTO-06 | Phase 11 | Pending |

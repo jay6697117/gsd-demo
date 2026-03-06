@@ -6,15 +6,15 @@ current_phase: 10
 current_phase_name: Skill/Talent Choice Engine
 current_plan: 4
 status: executing
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-03-06T17:22:09Z"
+stopped_at: Completed 10-04-PLAN.md
+last_updated: "2026-03-06T17:28:31Z"
 last_activity: 2026-03-07
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 20
-  completed_plans: 19
-  percent: 95
+  completed_plans: 20
+  percent: 100
 ---
 
 # STATE: PokeThrees Hunter
@@ -31,8 +31,8 @@ progress:
 - **Total Plans in Phase:** 4
 - **Status:** Executing
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Completed 10-03-PLAN.md with immediate upgrade effects and schema-bumped choice snapshot evidence
-- **Progress:** [██████████] 95%
+- **Last Activity Description:** Completed 10-04-PLAN.md with single-use reroll, browser choice evidence, and cumulative regression coverage
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -60,6 +60,7 @@ progress:
 | Phase 10 P1 | 10 min | 2 tasks | 3 files |
 | Phase 10 P2 | 13 min | 2 tasks | 6 files |
 | Phase 10 P3 | 6 min | 2 tasks | 5 files |
+| Phase 10 P4 | 7 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ progress:
 - [Phase 10]: `equip_compare` must win over `levelup_choice`, and `KeyP` is ignored while the level-up panel is active. — Modal priority and pause immunity are part of the runtime contract, not optional UI behavior.
 - [Phase 10]: Selected upgrades now flow through explicit effective-value helpers instead of mutating player base constants. — This keeps combat tuning composable across equipment, upgrades, and later progression layers.
 - [Phase 10]: Determinism schema `1.3.0` adds `levelUpState` and `upgradeState` as first-class snapshot sections. — Browser and contract tests now have one canonical text-state source for offer and applied-upgrade evidence.
+- [Phase 10]: Each active level-up event now gets exactly one reroll through `rerollLevelUpChoice()`. — One-shot reroll budget keeps offer randomness deterministic without widening the control surface or leaking into other RNG streams.
+- [Phase 10]: Legacy Phase 09 browser coverage now explicitly resolves `levelup_choice` before checking restart parity. — Regression tests should evolve with new modal contracts instead of silently assuming earlier gameplay flow.
 
 ### Blockers
 
@@ -106,8 +109,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-06T17:22:09Z
-- **Stopped At:** Completed 10-03-PLAN.md
+- **Last session:** 2026-03-06T17:28:31Z
+- **Stopped At:** Completed 10-04-PLAN.md
 - **Resume File:** None
 
 ## Project Reference
