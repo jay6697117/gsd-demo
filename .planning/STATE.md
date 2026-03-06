@@ -4,10 +4,10 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 09
 current_phase_name: XP & Level Progression Core
-current_plan: 0
-status: ready_to_plan
-stopped_at: Phase 09 ready to plan
-last_updated: "2026-03-06T09:19:43Z"
+current_plan: 1
+status: ready_to_execute
+stopped_at: Phase 09 ready to execute
+last_updated: "2026-03-06T10:02:47Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
@@ -27,11 +27,11 @@ progress:
 - **Current Phase:** 09
 - **Current Phase Name:** XP & Level Progression Core
 - **Total Phases:** 6
-- **Current Plan:** 0
-- **Total Plans in Phase:** 0
-- **Status:** Ready to plan
+- **Current Plan:** 1
+- **Total Plans in Phase:** 4
+- **Status:** Ready to execute
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Completed Phase 08 with 4 plans and passed phase verification
+- **Last Activity Description:** Planned Phase 09 with 4 plans in 4 waves
 - **Progress:** [█████░░░░░] 50%
 
 ## Performance Metrics (Historical v1.0)
@@ -82,6 +82,8 @@ progress:
 - [Phase 08]: Equipment replacement is gated by an explicit `equip_compare` mode with combat freeze and leave/re-enter re-arming on reject. — Deterministic compare flow is required so replay and text snapshots can explain both accept and reject branches under identical seeds.
 - [Phase 08]: Drop RNG now uses a dedicated loot-state stream isolated from spawn RNG. — This preserves replay parity while keeping loot outcomes explainable in snapshot text.
 - [Phase 08]: Effective player combat stats are derived from base constants plus equipment deltas. — This keeps gear changes deterministic and leaves room for future progression layers without mutating base tuning constants.
+- [Phase 09]: XP progression uses dedicated XP values and explicit threshold tables instead of reusing score. — This keeps progression pacing tunable without coupling it to combat scoring balance.
+- [Phase 09]: Level-up arrivals queue pending events and surface through HUD cues without pausing combat. — This preserves existing control semantics while preparing a deterministic event source for Phase 10 choice consumption.
 
 ### Blockers
 
@@ -90,7 +92,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-06T03:32:37.607Z
-- **Stopped At:** Phase 09 ready to plan
+- **Stopped At:** Phase 09 ready to execute
 - **Resume File:** None
 
 ## Project Reference
