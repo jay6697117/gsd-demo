@@ -6,12 +6,12 @@ import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 
 const HOST = "127.0.0.1";
-const PORT = 4179;
+const PORT = 4181;
 const BASE_URL = `http://${HOST}:${PORT}`;
-const ARTIFACT_DIR = path.join(".planning", "artifacts", "phase-09");
-const PNG_PATH = path.join(ARTIFACT_DIR, "progression-levels-latest.png");
-const STATE_PATH = path.join(ARTIFACT_DIR, "progression-levels-latest.json");
-const CONSOLE_PATH = path.join(ARTIFACT_DIR, "progression-levels-console.json");
+const ARTIFACT_DIR = path.join(".planning", "artifacts", "phase-10");
+const PNG_PATH = path.join(ARTIFACT_DIR, "levelup-choice-latest.png");
+const STATE_PATH = path.join(ARTIFACT_DIR, "levelup-choice-latest.json");
+const CONSOLE_PATH = path.join(ARTIFACT_DIR, "levelup-choice-console.json");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -67,43 +67,17 @@ async function readSnapshot(page) {
   return page.evaluate(() => JSON.parse(window.render_game_to_text()));
 }
 
-async function resolveCompareModeIfNeeded(page, snapshot) {
-  if (snapshot.mode !== "equip_compare") {
-    return snapshot;
-  }
-  await page.keyboard.press("Escape");
-  return advance(page, 240);
-}
-
-async function resolveLevelUpChoiceIfNeeded(page, snapshot) {
-  if (snapshot.mode !== "levelup_choice") {
-    return snapshot;
-  }
-  await page.keyboard.press("Enter");
-  return advance(page, 240);
-}
-
 async function runOpeningLevelUpRoute(page, attackCount = 3) {
   let snapshot = await readSnapshot(page);
-
   for (let index = 0; index < attackCount; index += 1) {
-    snapshot = await resolveCompareModeIfNeeded(page, snapshot);
+    if (snapshot.mode === "equip_compare") {
+      await page.keyboard.press("Escape");
+      snapshot = await advance(page, 240);
+    }
     await page.keyboard.press("Space");
     snapshot = await advance(page, 360);
   }
-
   return snapshot;
-}
-
-async function waitForGameOver(page, maxSteps = 40) {
-  let snapshot = await readSnapshot(page);
-  for (let step = 0; step < maxSteps; step += 1) {
-    if (snapshot.mode === "gameover") {
-      return snapshot;
-    }
-    snapshot = await advance(page, 400);
-  }
-  throw new Error(`Expected gameover while validating restart parity. snapshot=${JSON.stringify(snapshot)}`);
 }
 
 async function run() {
@@ -139,42 +113,46 @@ async function run() {
 
     await page.click("#start-btn");
     let snapshot = await advance(page, 900);
-    const initialSnapshot = snapshot;
 
     snapshot = await runOpeningLevelUpRoute(page, 3);
-
-    const postLevelSnapshot = snapshot;
-    if ((postLevelSnapshot.progressionState?.level ?? 1) < 2) {
-      throw new Error(`Expected scripted combat route to reach level 2. snapshot=${JSON.stringify(postLevelSnapshot)}`);
+    if (snapshot.mode !== "levelup_choice") {
+      throw new Error(`Expected levelup_choice mode. snapshot=${JSON.stringify(snapshot)}`);
     }
-    if (postLevelSnapshot.progressionState?.pendingLevelUpCount < 1) {
-      throw new Error(`Expected at least one pending level-up event. snapshot=${JSON.stringify(postLevelSnapshot)}`);
-    }
-    if (!String(postLevelSnapshot.feedback?.bannerText || "").includes("LEVEL UP")) {
-      throw new Error(`Expected LEVEL UP banner after threshold crossing. feedback=${JSON.stringify(postLevelSnapshot.feedback)}`);
+    if (snapshot.levelUpState?.rerollsRemaining !== 1) {
+      throw new Error(`Expected one reroll budget before reroll. levelUpState=${JSON.stringify(snapshot.levelUpState)}`);
     }
 
-    const hudText = await page.locator("#hud").textContent();
-    if (!hudText?.includes("Lvl 2")) {
-      throw new Error(`HUD is missing level display. hud=${JSON.stringify(hudText)}`);
+    const initialOfferId = snapshot.levelUpState.currentOfferId;
+    await page.keyboard.press("KeyR");
+    snapshot = await advance(page, 180);
+
+    if (snapshot.mode !== "levelup_choice") {
+      throw new Error(`Expected reroll to stay inside levelup_choice. snapshot=${JSON.stringify(snapshot)}`);
+    }
+    if (snapshot.levelUpState?.rerollsRemaining !== 0) {
+      throw new Error(`Expected reroll budget to drop to zero. levelUpState=${JSON.stringify(snapshot.levelUpState)}`);
+    }
+    if (snapshot.levelUpState?.currentOfferId === initialOfferId) {
+      throw new Error(`Expected reroll to advance offer identity. levelUpState=${JSON.stringify(snapshot.levelUpState)}`);
+    }
+    if ((snapshot.levelUpState?.offeredChoices?.length ?? 0) !== 3) {
+      throw new Error(`Expected rerolled panel to keep exactly 3 choices. levelUpState=${JSON.stringify(snapshot.levelUpState)}`);
     }
 
-    const postChoiceSnapshot = await resolveLevelUpChoiceIfNeeded(page, postLevelSnapshot);
-    await waitForGameOver(page);
-    await page.click("#restart-btn");
-    snapshot = await advance(page, 1200);
+    const rerolledChoices = snapshot.levelUpState.offeredChoices;
+    await page.keyboard.press("Enter");
+    snapshot = await advance(page, 240);
 
-    const restartedSnapshot = await readSnapshot(page);
+    const finalSnapshot = await readSnapshot(page);
+    const chosenChoice = rerolledChoices[0];
     await page.screenshot({ path: PNG_PATH, fullPage: false });
     await fs.writeFile(
       STATE_PATH,
       JSON.stringify(
         {
-          initialSnapshot,
-          postLevelSnapshot,
-          postChoiceSnapshot,
-          restartedSnapshot,
-          hudText,
+          initialOfferId,
+          rerolledChoices,
+          finalSnapshot,
         },
         null,
         2,
@@ -183,28 +161,22 @@ async function run() {
     );
     await fs.writeFile(CONSOLE_PATH, JSON.stringify(consoleMessages, null, 2), "utf-8");
 
-    if (restartedSnapshot.mode !== "playing") {
-      throw new Error(`Expected restart to return to playing. snapshot=${JSON.stringify(restartedSnapshot)}`);
+    if (finalSnapshot.mode !== "playing") {
+      throw new Error(`Expected choice confirm to resume playing. snapshot=${JSON.stringify(finalSnapshot)}`);
     }
-    if (restartedSnapshot.levelUpState?.activeEventId !== null) {
-      throw new Error(`Expected no active level-up state after restart. levelUpState=${JSON.stringify(restartedSnapshot.levelUpState)}`);
+    if (finalSnapshot.levelUpState?.activeEventId !== null) {
+      throw new Error(`Expected no active level-up session after confirm. levelUpState=${JSON.stringify(finalSnapshot.levelUpState)}`);
     }
-    if ((restartedSnapshot.upgradeState?.appliedChoices?.length ?? 0) !== 0) {
-      throw new Error(`Expected upgrade state reset after restart. upgradeState=${JSON.stringify(restartedSnapshot.upgradeState)}`);
+    if ((finalSnapshot.progressionState?.pendingLevelUpCount ?? 0) !== 0) {
+      throw new Error(`Expected pending level-up queue to consume one event. progressionState=${JSON.stringify(finalSnapshot.progressionState)}`);
     }
-    if (
-      JSON.stringify(restartedSnapshot.progressionState) !==
-      JSON.stringify({
-        level: 1,
-        totalXp: 0,
-        currentLevelStartXp: 0,
-        nextLevelXp: 4,
-        pendingLevelUpCount: 0,
-        pendingLevelUps: [],
-        eventSeq: 0,
-      })
-    ) {
-      throw new Error(`Expected progression reset after restart. progressionState=${JSON.stringify(restartedSnapshot.progressionState)}`);
+    if ((finalSnapshot.upgradeState?.appliedChoices?.length ?? 0) < 1) {
+      throw new Error(`Expected at least one applied upgrade after confirm. upgradeState=${JSON.stringify(finalSnapshot.upgradeState)}`);
+    }
+    if (finalSnapshot.upgradeState.appliedChoices[0]?.id !== chosenChoice.id) {
+      throw new Error(
+        `Expected chosen upgrade to be recorded first. upgradeState=${JSON.stringify(finalSnapshot.upgradeState)} chosen=${JSON.stringify(chosenChoice)}`,
+      );
     }
 
     const criticalConsoleErrors = consoleMessages.filter(

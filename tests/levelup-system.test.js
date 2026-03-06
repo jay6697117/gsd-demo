@@ -14,6 +14,7 @@ import {
   generateUpgradeOffers,
   getEligibleUpgrades,
   moveLevelUpSelection,
+  rerollLevelUpChoice,
   summarizeLevelUpStateForSnapshot,
   summarizeUpgradeStateForSnapshot,
 } from "../src/levelup-system.js";
@@ -342,4 +343,42 @@ test("snapshot helpers expose stable levelUpState and upgradeState fields", () =
       attackCooldown: 0,
     },
   });
+});
+
+test("rerollLevelUpChoice allows exactly one deterministic reroll per active event", () => {
+  const progressionState = {
+    level: 2,
+    totalXp: 4,
+    pendingLevelUps: [{ id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 }],
+    eventSeq: 1,
+  };
+  const upgradeState = createUpgradeState();
+  const opened = beginLevelUpChoice({
+    progressionState,
+    upgradeState,
+    levelUpState: createLevelUpState({
+      offerRngState: createOfferSeed(0x57b1c4),
+    }),
+  });
+
+  const rerolled = rerollLevelUpChoice({
+    progressionState,
+    upgradeState,
+    levelUpState: opened.levelUpState,
+  });
+  const ignored = rerollLevelUpChoice({
+    progressionState,
+    upgradeState,
+    levelUpState: rerolled.levelUpState,
+  });
+
+  assert.equal(rerolled.didReroll, true);
+  assert.equal(rerolled.levelUpState.currentOfferId, "lvlup-0001-offer-0002");
+  assert.equal(rerolled.levelUpState.offerSeq, 2);
+  assert.equal(rerolled.levelUpState.rerollsRemaining, 0);
+  assert.equal(rerolled.levelUpState.offeredChoices.length, 3);
+  assert.equal(new Set(rerolled.levelUpState.offeredChoices.map((choice) => choice.id)).size, 3);
+  assert.notEqual(rerolled.levelUpState.offerRngState, opened.levelUpState.offerRngState);
+  assert.equal(ignored.didReroll, false);
+  assert.deepEqual(ignored.levelUpState, rerolled.levelUpState);
 });

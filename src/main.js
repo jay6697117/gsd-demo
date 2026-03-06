@@ -47,6 +47,7 @@ import {
   createOfferSeed,
   createUpgradeState,
   moveLevelUpSelection,
+  rerollLevelUpChoice,
 } from "./levelup-system.js";
 import {
   applyEnemyKillXp,
@@ -196,7 +197,7 @@ const levelUpChoiceCards = Array.from({ length: 3 }, () => {
 
 const levelUpHint = document.createElement("p");
 levelUpHint.className = "levelup-hint";
-levelUpHint.textContent = "A / Left  D / Right  Enter / Space choose  ·  P ignored";
+levelUpHint.textContent = "A / Left  D / Right  Enter / Space choose  ·  R reroll once  ·  P ignored";
 
 levelUpPanel.append(levelUpTitle, levelUpSubtitle, levelUpChoices, levelUpHint);
 levelUpOverlay.append(levelUpPanel);
@@ -2122,6 +2123,21 @@ function handleLevelUpChoiceInput() {
     return;
   }
 
+  if (consumeEdge(pressedThisStep, "KeyR")) {
+    const rerolled = rerollLevelUpChoice({
+      progressionState: state.progression,
+      upgradeState: state.upgrades,
+      levelUpState: state.levelUp,
+    });
+    state.progression = rerolled.progressionState;
+    state.upgrades = rerolled.upgradeState;
+    state.levelUp = rerolled.levelUpState;
+    if (rerolled.didReroll) {
+      setCenterBanner("REROLL READY", "neutral", 0.34, true);
+    }
+    return;
+  }
+
   if (consumeEdge(pressedThisStep, "Enter") || consumeEdge(pressedThisStep, "Space")) {
     const confirmed = confirmLevelUpChoice({
       progressionState: state.progression,
@@ -2562,7 +2578,9 @@ function updateLevelUpOverlay() {
 
   levelUpOverlay.classList.remove("hidden");
   levelUpOverlay.setAttribute("aria-hidden", "false");
-  levelUpSubtitle.textContent = `Event ${levelUpState.activeEventId}  ·  Choose 1 of ${levelUpState.offeredChoices.length}`;
+  levelUpSubtitle.textContent =
+    `Event ${levelUpState.activeEventId}  ·  Choose 1 of ${levelUpState.offeredChoices.length}` +
+    `  ·  Rerolls ${levelUpState.rerollsRemaining}`;
 
   for (let index = 0; index < levelUpChoiceCards.length; index += 1) {
     const entry = levelUpChoiceCards[index];

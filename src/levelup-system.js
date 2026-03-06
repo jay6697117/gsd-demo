@@ -403,6 +403,65 @@ export function moveLevelUpSelection({
   });
 }
 
+export function rerollLevelUpChoice({
+  progressionState = createProgressionState(),
+  upgradeState = createUpgradeState(),
+  levelUpState = createLevelUpState(),
+  catalog = UPGRADE_CATALOG,
+} = {}) {
+  const normalizedProgression = createProgressionState(progressionState);
+  const normalizedUpgradeState = createUpgradeState(upgradeState);
+  const normalizedLevelUpState = createLevelUpState(levelUpState);
+
+  if (
+    !normalizedLevelUpState.activeEventId ||
+    normalizedLevelUpState.rerollsRemaining <= 0
+  ) {
+    return {
+      didReroll: false,
+      progressionState: normalizedProgression,
+      upgradeState: normalizedUpgradeState,
+      levelUpState: normalizedLevelUpState,
+    };
+  }
+
+  const activeEvent =
+    normalizedProgression.pendingLevelUps.find(
+      (event) => event.id === normalizedLevelUpState.activeEventId,
+    ) ?? null;
+  if (!activeEvent) {
+    return {
+      didReroll: false,
+      progressionState: normalizedProgression,
+      upgradeState: normalizedUpgradeState,
+      levelUpState: normalizedLevelUpState,
+    };
+  }
+
+  const rerolledOffer = generateUpgradeOffers({
+    levelUpEvent: activeEvent,
+    upgradeState: normalizedUpgradeState,
+    offerRngState: normalizedLevelUpState.offerRngState,
+    catalog,
+  });
+  const nextOfferSeq = normalizedLevelUpState.offerSeq + 1;
+
+  return {
+    didReroll: true,
+    progressionState: normalizedProgression,
+    upgradeState: normalizedUpgradeState,
+    levelUpState: createLevelUpState({
+      activeEventId: normalizedLevelUpState.activeEventId,
+      currentOfferId: createOfferId(normalizedLevelUpState.activeEventId, nextOfferSeq),
+      offeredChoices: rerolledOffer.offeredChoices,
+      selectedIndex: 0,
+      rerollsRemaining: normalizedLevelUpState.rerollsRemaining - 1,
+      offerSeq: nextOfferSeq,
+      offerRngState: rerolledOffer.offerRngState,
+    }),
+  };
+}
+
 export function confirmLevelUpChoice({
   progressionState = createProgressionState(),
   upgradeState = createUpgradeState(),
