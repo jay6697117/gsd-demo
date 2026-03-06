@@ -8,6 +8,7 @@ import {
 import {
   createOfferSeed,
   createUpgradeState,
+  generateUpgradeOffers,
   getEligibleUpgrades,
 } from "../src/levelup-system.js";
 
@@ -55,7 +56,27 @@ test("eligible upgrades filter unmet requirements, exclusions, and max-rank entr
   assert.ok(!eligibleIds.includes("battle_tempo"));
 });
 
-test("offer seed derivation stays isolated from other runtime rng streams", () => {
-  assert.equal(createOfferSeed(0), OFFER_RNG_SEED_SALT >>> 0);
-  assert.equal(createOfferSeed(0x1234abcd), (0x1234abcd ^ OFFER_RNG_SEED_SALT) >>> 0);
+test("deterministic offer generation returns exactly three unique choices and covers both pools when possible", () => {
+  const upgradeState = createUpgradeState({
+    appliedChoices: [{ id: "wide_slash", kind: "skill" }],
+  });
+  const params = {
+    levelUpEvent: { id: "lvlup-0002", reachedLevel: 2, thresholdXp: 4 },
+    upgradeState,
+    offerRngState: createOfferSeed(0x1234abcd),
+  };
+
+  const first = generateUpgradeOffers(params);
+  const second = generateUpgradeOffers(params);
+
+  assert.deepEqual(first, second);
+  assert.equal(first.offeredChoices.length, 3);
+  assert.equal(new Set(first.offeredChoices.map((entry) => entry.id)).size, 3);
+  assert.ok(first.offeredChoices.some((entry) => entry.kind === "skill"));
+  assert.ok(first.offeredChoices.some((entry) => entry.kind === "talent"));
+  assert.notEqual(first.offerRngState, params.offerRngState);
+  assert.deepEqual(
+    first.offeredChoices.map((entry) => entry.id),
+    ["edge_control", "heavy_hand", "sturdy_frame"],
+  );
 });

@@ -69,8 +69,27 @@ function buildAppliedModifiers(appliedChoices = [], catalog = UPGRADE_CATALOG) {
   };
 }
 
+function createNextRngState(rngState) {
+  return (1664525 * (Math.floor(toFiniteNumber(rngState, 0)) >>> 0) + 1013904223) >>> 0;
+}
+
+function pickDeterministicIndex(rngState, length) {
+  if (length <= 0) {
+    return { index: -1, nextState: Math.floor(toFiniteNumber(rngState, 0)) >>> 0 };
+  }
+  const nextState = createNextRngState(rngState);
+  return {
+    index: nextState % length,
+    nextState,
+  };
+}
+
 function sortEntriesStable(entries = []) {
   return [...entries].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function removeEntryById(entries, id) {
+  return entries.filter((entry) => entry.id !== id);
 }
 
 function normalizeLevelUpEvent(levelUpEvent = {}) {
@@ -124,4 +143,65 @@ export function getEligibleUpgrades({
     }
     return true;
   });
+}
+
+export function generateUpgradeOffers({
+  levelUpEvent = normalizeLevelUpEvent(),
+  upgradeState = createUpgradeState(),
+  offerRngState = 0,
+  catalog = UPGRADE_CATALOG,
+  offerCount = 3,
+} = {}) {
+  const eligible = getEligibleUpgrades({ levelUpEvent, upgradeState, catalog });
+  const desiredCount = Math.max(0, Math.floor(toFiniteNumber(offerCount, 3)));
+  if (eligible.length < desiredCount) {
+    throw new Error(`Expected at least ${desiredCount} eligible upgrades, received ${eligible.length}.`);
+  }
+
+  let nextState = Math.floor(toFiniteNumber(offerRngState, 0)) >>> 0;
+  let remainingSkills = eligible.filter((entry) => entry.kind === "skill");
+  let remainingTalents = eligible.filter((entry) => entry.kind === "talent");
+  let remaining = [...eligible];
+  const picks = [];
+
+  if (desiredCount >= 2 && remainingSkills.length > 0 && remainingTalents.length > 0) {
+    const skillPick = pickDeterministicIndex(nextState, remainingSkills.length);
+    nextState = skillPick.nextState;
+    picks.push(remainingSkills[skillPick.index]);
+    remaining = removeEntryById(remaining, picks.at(-1).id);
+    remainingSkills = removeEntryById(remainingSkills, picks.at(-1).id);
+    remainingTalents = removeEntryById(remainingTalents, picks.at(-1).id);
+
+    const talentPick = pickDeterministicIndex(nextState, remainingTalents.length);
+    nextState = talentPick.nextState;
+    picks.push(remainingTalents[talentPick.index]);
+    remaining = removeEntryById(remaining, picks.at(-1).id);
+    remainingSkills = removeEntryById(remainingSkills, picks.at(-1).id);
+    remainingTalents = removeEntryById(remainingTalents, picks.at(-1).id);
+  }
+
+  while (picks.length < desiredCount) {
+    const nextPick = pickDeterministicIndex(nextState, remaining.length);
+    nextState = nextPick.nextState;
+    const choice = remaining[nextPick.index];
+    picks.push(choice);
+    remaining = removeEntryById(remaining, choice.id);
+  }
+
+  return {
+    levelUpEvent: normalizeLevelUpEvent(levelUpEvent),
+    offeredChoices: sortEntriesStable(picks).map((entry) => ({
+      id: entry.id,
+      kind: entry.kind,
+      label: entry.label,
+      description: entry.description,
+      maxRank: entry.maxRank,
+      nextRank: (buildChoiceRanks(createUpgradeState(upgradeState).appliedChoices).get(entry.id) ?? 0) + 1,
+      requires: [...entry.requires],
+      excludes: [...entry.excludes],
+      tags: [...entry.tags],
+      effect: { ...entry.effect },
+    })),
+    offerRngState: nextState,
+  };
 }
