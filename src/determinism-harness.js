@@ -46,6 +46,31 @@ function normalizeBuildingSummary(buildings) {
   return summarizeBuildingsForSnapshot(Array.isArray(buildings) ? buildings : []);
 }
 
+function normalizeWorldTactics(tactics) {
+  const currentTactics = tactics || {};
+  return {
+    currentSectorId:
+      typeof currentTactics.currentSectorId === "string" ? currentTactics.currentSectorId : null,
+    buildingIds: Array.isArray(currentTactics.buildingIds)
+      ? currentTactics.buildingIds.filter((id) => typeof id === "string")
+      : [],
+    roleCounts: Array.isArray(currentTactics.roleCounts)
+      ? currentTactics.roleCounts
+          .filter((entry) => typeof entry?.role === "string")
+          .map((entry) => ({
+            role: entry.role,
+            count: Math.floor(toFinite(entry?.count, 0)),
+          }))
+      : [],
+    sectorEnemyCount: Math.floor(toFinite(currentTactics.sectorEnemyCount, 0)),
+    lineBreakAvailable: Boolean(currentTactics.lineBreakAvailable),
+    funnelAvailable: Boolean(currentTactics.funnelAvailable),
+    retreatPocketAvailable: Boolean(currentTactics.retreatPocketAvailable),
+    retreatPocketActive: Boolean(currentTactics.retreatPocketActive),
+    cueLabel: typeof currentTactics.cueLabel === "string" ? currentTactics.cueLabel : "OPEN",
+  };
+}
+
 export function computeAdvanceSteps(ms, fixedStepSeconds = DEFAULT_FIXED_STEP_SECONDS) {
   const clampedMs = Math.max(0, toFinite(ms, 0));
   const stepSeconds = normalizeFixedStep(fixedStepSeconds);
@@ -111,6 +136,7 @@ export function buildDeterministicSnapshot({
     world: {
       ...worldSummary,
       buildings: normalizeBuildingSummary(world.buildings),
+      tactics: normalizeWorldTactics(world.tactics),
       readability: {
         sectorLabel:
           typeof worldReadability.sectorLabel === "string"

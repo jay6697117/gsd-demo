@@ -81,6 +81,21 @@ function buildMockState() {
           },
         },
       ],
+      tactics: {
+        currentSectorId: "hub",
+        buildingIds: ["hub-blocker-01"],
+        roleCounts: [
+          { role: "blocker", count: 1 },
+          { role: "funnel", count: 0 },
+          { role: "soft-cover", count: 0 },
+        ],
+        sectorEnemyCount: 3,
+        lineBreakAvailable: true,
+        funnelAvailable: false,
+        retreatPocketAvailable: false,
+        retreatPocketActive: false,
+        cueLabel: "BREAK",
+      },
       readability: {
         sectorLabel: "HUB",
         pressureLevel: "medium",
@@ -168,6 +183,18 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(Array.isArray(snapshot.world.buildings), true);
   assert.equal(snapshot.world.buildings[0].id, "hub-blocker-01");
   assert.equal(snapshot.world.buildings[0].colliderCount, 2);
+  assert.equal(snapshot.world.tactics.currentSectorId, "hub");
+  assert.deepEqual(
+    snapshot.world.tactics.roleCounts,
+    [
+      { role: "blocker", count: 1 },
+      { role: "funnel", count: 0 },
+      { role: "soft-cover", count: 0 },
+    ],
+  );
+  assert.equal(snapshot.world.tactics.lineBreakAvailable, true);
+  assert.equal(snapshot.world.tactics.retreatPocketActive, false);
+  assert.equal(snapshot.world.tactics.cueLabel, "BREAK");
   assert.equal(snapshot.world.readability.sectorLabel, "HUB");
   assert.equal(snapshot.world.readability.pressureLevel, "medium");
   assert.equal(snapshot.world.readability.pressureLabel, "TENSE");
@@ -196,6 +223,7 @@ test("snapshot output remains deterministic for equivalent inputs", () => {
 
   assert.deepEqual(first, second);
   assert.equal(JSON.stringify(first), JSON.stringify(second));
+  assert.deepEqual(first.world.tactics, second.world.tactics);
 });
 
 test("snapshot sorts enemy records by id for stable assertions", () => {
