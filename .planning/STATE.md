@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 11
 current_phase_name: Automation & Determinism Hardening
-current_plan: 0
-status: ready_to_plan
-stopped_at: Phase 11 ready to plan
-last_updated: "2026-03-06T17:30:20Z"
+current_plan: 1
+status: ready_to_execute
+stopped_at: Phase 11 ready to execute
+last_updated: "2026-03-06T23:54:45Z"
 last_activity: 2026-03-07
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 20
   completed_plans: 20
-  percent: 100
+  percent: 83
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 11
 - **Current Phase Name:** Automation & Determinism Hardening
 - **Total Phases:** 6
-- **Current Plan:** 0
-- **Total Plans in Phase:** 0
-- **Status:** Ready to plan
+- **Current Plan:** 1
+- **Total Plans in Phase:** 4
+- **Status:** Ready to execute
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Completed Phase 10 with 4 plans and passed phase verification
-- **Progress:** [██████████] 100%
+- **Last Activity Description:** Planned Phase 11 with 4 plans in 4 waves
+- **Progress:** [████████░░] 83%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -102,6 +102,8 @@ progress:
 - [Phase 10]: Determinism schema `1.3.0` adds `levelUpState` and `upgradeState` as first-class snapshot sections. — Browser and contract tests now have one canonical text-state source for offer and applied-upgrade evidence.
 - [Phase 10]: Each active level-up event now gets exactly one reroll through `rerollLevelUpChoice()`. — One-shot reroll budget keeps offer randomness deterministic without widening the control surface or leaking into other RNG streams.
 - [Phase 10]: Legacy Phase 09 browser coverage now explicitly resolves `levelup_choice` before checking restart parity. — Regression tests should evolve with new modal contracts instead of silently assuming earlier gameplay flow.
+- [Phase 11]: v1.1 automation remains on direct Node + Playwright scripts, with shared browser helpers instead of a framework migration. — This reduces duplicated lifecycle code without rewriting the existing route inventory.
+- [Phase 11]: Snapshot contract will freeze world, loot, equipment, progression, level-up, upgrade, spawn, and top-level RNG evidence under schema `1.4.0`. — Cross-pipeline replay assertions need one canonical text-state surface.
 
 ### Blockers
 
@@ -110,7 +112,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-06T17:30:20Z
-- **Stopped At:** Phase 11 ready to plan
+- **Stopped At:** Phase 11 ready to execute
 - **Resume File:** None
 
 ## Project Reference
