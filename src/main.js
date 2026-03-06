@@ -29,6 +29,7 @@ import {
   buildWorldTacticsState,
   filterSpawnCandidates,
   getBuildingColliders,
+  planBuildingAwareSteering,
   WORLD_BUILDINGS,
 } from "./building-system.js";
 
@@ -1238,6 +1239,9 @@ function spawnEnemy() {
     speed: enemyType.speed,
     points: enemyType.points,
     flash: 0,
+    blockedFrames: 0,
+    steerSign: 1,
+    steeringMode: "direct",
     sectorId: selectedSectorId,
     sprite,
   });
@@ -1700,17 +1704,23 @@ function doAttack() {
 
 function updateEnemies(dt) {
   for (const enemy of state.enemies) {
-    const dx = state.player.x - enemy.x;
-    const dy = state.player.y - enemy.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const desiredVx = (dx / len) * enemy.speed;
-    const desiredVy = (dy / len) * enemy.speed;
+    const steering = planBuildingAwareSteering({
+      position: { x: enemy.x, y: enemy.y },
+      targetPosition: { x: state.player.x, y: state.player.y },
+      speed: enemy.speed,
+      dt,
+      buildingColliders: WORLD_BUILDING_COLLIDERS,
+      blockedFrames: enemy.blockedFrames ?? 0,
+      steerSign: enemy.steerSign ?? 1,
+      padding: enemy.radius * 0.95,
+    });
 
     const resolved = resolveEnemyBoundaryMovement({
       position: { x: enemy.x, y: enemy.y },
-      velocity: { x: desiredVx, y: desiredVy },
+      velocity: steering.velocity,
       dt,
       currentSectorId: enemy.sectorId,
+      buildingColliders: WORLD_BUILDING_COLLIDERS,
       fallbackBounds: ENEMY_MOVEMENT_FALLBACK_BOUNDS,
     });
 
@@ -1719,6 +1729,9 @@ function updateEnemies(dt) {
     enemy.x = resolved.x;
     enemy.y = resolved.y;
     enemy.sectorId = resolved.sectorId;
+    enemy.blockedFrames = resolved.blocked ? steering.blockedFrames + 1 : steering.blockedFrames;
+    enemy.steerSign = steering.steerSign;
+    enemy.steeringMode = steering.mode;
 
     const collideDistance = state.player.radius + enemy.radius;
     const postMoveDx = state.player.x - enemy.x;
