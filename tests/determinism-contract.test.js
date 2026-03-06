@@ -190,6 +190,15 @@ function buildMockState() {
         statDelta: 3,
       },
     },
+    progression: {
+      level: 3,
+      totalXp: 13,
+      pendingLevelUps: [
+        { id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 },
+        { id: "lvlup-0002", reachedLevel: 3, thresholdXp: 10 },
+      ],
+      eventSeq: 2,
+    },
     spawnDirector: {
       eventSeq: 4,
       sectorWeights: [
@@ -251,7 +260,7 @@ test("snapshot includes stable schema/version and required sections", () => {
     manualSteppingMode: false,
   });
 
-  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.1.0");
+  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.2.0");
   assert.equal(snapshot.schemaVersion, DETERMINISM_SCHEMA_VERSION);
   assert.equal(typeof snapshot.determinism.fixedStepSeconds, "number");
   assert.equal(typeof snapshot.determinism.lastAdvanceSteps, "number");
@@ -317,6 +326,18 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(snapshot.equipmentState.slots.weapon.id, "drop-0001-hub-crate-01");
   assert.equal(snapshot.equipmentState.compareCandidate.slot, "weapon");
   assert.equal(snapshot.equipmentState.compareCandidate.statDelta, 3);
+  assert.deepEqual(snapshot.progressionState, {
+    level: 3,
+    totalXp: 13,
+    currentLevelStartXp: 10,
+    nextLevelXp: 18,
+    pendingLevelUpCount: 2,
+    pendingLevelUps: [
+      { id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 },
+      { id: "lvlup-0002", reachedLevel: 3, thresholdXp: 10 },
+    ],
+    eventSeq: 2,
+  });
   assert.equal(snapshot.spawnState.lastSpawnSectorId, "east");
   assert.equal(snapshot.spawnState.spawnCooldown, 0.494);
   assert.deepEqual(

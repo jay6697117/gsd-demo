@@ -131,3 +131,22 @@ export function applyEnemyKillXp({
     xpGain,
   };
 }
+
+export function summarizeProgressionStateForSnapshot(progressionState = createProgressionState()) {
+  const normalized = createProgressionState(progressionState);
+  const levelWindow = getLevelWindow(normalized.totalXp);
+
+  return {
+    level: normalized.level,
+    totalXp: normalized.totalXp,
+    currentLevelStartXp: levelWindow.currentLevelStartXp,
+    nextLevelXp: levelWindow.nextLevelXp,
+    pendingLevelUpCount: normalized.pendingLevelUps.length,
+    pendingLevelUps: normalized.pendingLevelUps.map((event) => ({
+      id: event.id,
+      reachedLevel: event.reachedLevel,
+      thresholdXp: event.thresholdXp,
+    })),
+    eventSeq: normalized.eventSeq,
+  };
+}

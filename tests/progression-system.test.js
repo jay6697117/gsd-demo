@@ -14,6 +14,7 @@ import {
   getLevelWindow,
   getThresholdXpForLevel,
   getXpValueForEnemyKind,
+  summarizeProgressionStateForSnapshot,
 } from "../src/progression-system.js";
 
 test("progression config keeps xp values independent from score", () => {
@@ -141,4 +142,30 @@ test("enemy kill xp flows through the progression reducer without touching score
     pendingLevelUps: [{ id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 }],
     eventSeq: 1,
   });
+});
+
+test("snapshot summary exposes stable progression fields for hud and replay assertions", () => {
+  assert.deepEqual(
+    summarizeProgressionStateForSnapshot({
+      level: 3,
+      totalXp: 13,
+      pendingLevelUps: [
+        { id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 },
+        { id: "lvlup-0002", reachedLevel: 3, thresholdXp: 10 },
+      ],
+      eventSeq: 2,
+    }),
+    {
+      level: 3,
+      totalXp: 13,
+      currentLevelStartXp: 10,
+      nextLevelXp: 18,
+      pendingLevelUpCount: 2,
+      pendingLevelUps: [
+        { id: "lvlup-0001", reachedLevel: 2, thresholdXp: 4 },
+        { id: "lvlup-0002", reachedLevel: 3, thresholdXp: 10 },
+      ],
+      eventSeq: 2,
+    },
+  );
 });

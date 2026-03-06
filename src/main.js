@@ -40,7 +40,11 @@ import {
   rejectCompareCandidate,
   resolveAutoPickupStep,
 } from "./equipment-system.js";
-import { applyEnemyKillXp, createProgressionState } from "./progression-system.js";
+import {
+  applyEnemyKillXp,
+  createProgressionState,
+  getLevelWindow,
+} from "./progression-system.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -1695,6 +1699,15 @@ function triggerMilestoneFeedback(killsThisSwing, chainValue) {
   }
 }
 
+function triggerProgressionFeedback(gainedEvents) {
+  if (!Array.isArray(gainedEvents) || gainedEvents.length === 0) {
+    return;
+  }
+
+  const lastEvent = gainedEvents[gainedEvents.length - 1];
+  setCenterBanner(`LEVEL UP · LV ${lastEvent.reachedLevel}`, "chain", 0.72, true);
+}
+
 function resetFeedbackState() {
   state.feedback.hitFlash = 0;
   state.feedback.killFlash = 0;
@@ -2066,6 +2079,7 @@ function doAttack() {
 
   const survivors = [];
   const killMoments = [];
+  const levelUpEvents = [];
   for (const enemy of orderedEnemies) {
     if (enemy.hp > 0) {
       survivors.push(enemy);
@@ -2085,10 +2099,12 @@ function doAttack() {
       state.chain = 1;
     }
     state.chainTimer = 2.4;
-    state.progression = applyEnemyKillXp({
+    const progressionUpdate = applyEnemyKillXp({
       progressionState: state.progression,
       enemyKind: enemy.kind,
-    }).progressionState;
+    });
+    state.progression = progressionUpdate.progressionState;
+    levelUpEvents.push(...progressionUpdate.gainedEvents);
     killMoments.push({ x: enemy.x, y: enemy.y });
   }
 
@@ -2110,6 +2126,7 @@ function doAttack() {
     }
     triggerMilestoneFeedback(killMoments.length, state.chain);
   }
+  triggerProgressionFeedback(levelUpEvents);
 }
 
 function updateEnemies(dt) {
@@ -2228,6 +2245,10 @@ function updateHud() {
   const hp = Math.max(0, Math.floor(state.player.hp));
   const maxHp = Math.max(1, Math.floor(getEffectiveMaxHp()));
   const score = Math.floor(state.score);
+  const progressionWindow = getLevelWindow(state.progression?.totalXp ?? 0);
+  const currentLevel = state.progression?.level ?? progressionWindow.level;
+  const currentXp = state.progression?.totalXp ?? 0;
+  const pendingLevelUpCount = state.progression?.pendingLevelUps?.length ?? 0;
   const chainText = state.chain > 1 && state.chainTimer > 0 ? `x${state.chain}` : "-";
   const bannerText = state.feedback.bannerTimer > 0 ? state.feedback.bannerText : "-";
   const attackText = state.player.attackCooldown > 0 ? `${state.player.attackCooldown.toFixed(2)}s` : "READY";
@@ -2270,6 +2291,7 @@ function updateHud() {
   hud.textContent =
     `HP ${hp}/${maxHp}\n` +
     `Score ${score}  Kills ${state.kills}\n` +
+    `Lvl ${currentLevel}  XP ${currentXp}/${progressionWindow.nextLevelXp}  Queue ${pendingLevelUpCount}\n` +
     `Time ${state.time.toFixed(1)}s  Chain ${chainText}\n` +
     `Atk ${attackText}  Enemies ${state.enemies.length}\n` +
     `${gearText}\n` +
