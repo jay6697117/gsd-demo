@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 current_phase: 08
-current_phase_name: breakables, loot, and equipment
-current_plan: Not started
-status: planning
-stopped_at: Phase 08 ready to plan
-last_updated: "2026-03-06T03:34:31.748Z"
+current_phase_name: Breakables, Loot, and Equipment
+current_plan: 1
+status: executing
+stopped_at: Phase 08 planned
+last_updated: "2026-03-06T07:20:52.667Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 8
+  total_plans: 12
   completed_plans: 8
-  percent: 100
+  percent: 0
 ---
 
 # STATE: PokeThrees Hunter
@@ -25,14 +25,14 @@ progress:
 
 - **Current Milestone:** v1.1 World & Growth Overhaul
 - **Current Phase:** 08
-- **Current Phase Name:** breakables, loot, and equipment
+- **Current Phase Name:** Breakables, Loot, and Equipment
 - **Total Phases:** 6
-- **Current Plan:** Not started
+- **Current Plan:** 1
 - **Total Plans in Phase:** 4
-- **Status:** Ready to plan
+- **Status:** Ready to execute
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Phase 07 complete, transitioned to Phase 08
-- **Progress:** [██████████] 100%
+- **Last Activity Description:** Planned Phase 08 with 4 plans in 4 waves
+- **Progress:** [░░░░░░░░░░] 0%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -74,6 +74,8 @@ progress:
 - [Phase 07]: Used edge-clearance guide points plus nearest-exit recovery instead of navmesh, A*, or random detours. — Phase 07 needs deterministic obstacle pursuit, not heavier pathfinding state or non-repeatable routing.
 - [Phase 07]: Serialized world.tactics through determinism-harness rather than adding a second debug/export path in main.js. — One snapshot bridge keeps building and tactical evidence machine-readable without duplicating runtime export code.
 - [Phase 07]: Drove the tactical E2E route through fixed-step key holds and south-pocket activation to keep building evidence deterministic. — advanceTime-based routing proves building use in a real browser while remaining replayable for BLD-04.
+- [Phase 08]: Breakable props are authored non-blocking world objects and never reuse building collision or tactical semantics. — This keeps the loot loop isolated from Phase 07 building contracts and prevents scope bleed into steering or blocker logic.
+- [Phase 08]: Equipment replacement is gated by an explicit `equip_compare` mode with combat freeze and leave/re-enter re-arming on reject. — Deterministic compare flow is required so replay and text snapshots can explain both accept and reject branches under identical seeds.
 
 ### Blockers
 
@@ -82,7 +84,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-06T03:32:37.607Z
-- **Stopped At:** Phase 08 ready to plan
+- **Stopped At:** Phase 08 planned
 - **Resume File:** None
 
 ## Project Reference
