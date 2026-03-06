@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-current_phase: 08
-current_phase_name: Breakables, Loot, and Equipment
-current_plan: 1
-status: executing
-stopped_at: Phase 08 planned
-last_updated: "2026-03-06T07:20:52.667Z"
+current_phase: 09
+current_phase_name: XP & Level Progression Core
+current_plan: 0
+status: ready_to_plan
+stopped_at: Phase 09 ready to plan
+last_updated: "2026-03-06T09:19:43Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 8
-  percent: 0
+  completed_plans: 12
+  percent: 50
 ---
 
 # STATE: PokeThrees Hunter
@@ -24,15 +24,15 @@ progress:
 ## Current Position
 
 - **Current Milestone:** v1.1 World & Growth Overhaul
-- **Current Phase:** 08
-- **Current Phase Name:** Breakables, Loot, and Equipment
+- **Current Phase:** 09
+- **Current Phase Name:** XP & Level Progression Core
 - **Total Phases:** 6
-- **Current Plan:** 1
-- **Total Plans in Phase:** 4
-- **Status:** Ready to execute
+- **Current Plan:** 0
+- **Total Plans in Phase:** 0
+- **Status:** Ready to plan
 - **Last Activity:** 2026-03-06
-- **Last Activity Description:** Planned Phase 08 with 4 plans in 4 waves
-- **Progress:** [░░░░░░░░░░] 0%
+- **Last Activity Description:** Completed Phase 08 with 4 plans and passed phase verification
+- **Progress:** [█████░░░░░] 50%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -49,6 +49,10 @@ progress:
 | Phase 07 P01 | 18 min | 2 tasks | 5 files |
 | Phase 07 P03 | 11 min | 2 tasks | 3 files |
 | Phase 07 P04 | 4 min | 3 tasks | 3 files |
+| Phase 08 P01 | 4 min | 2 tasks | 6 files |
+| Phase 08 P02 | 3 min | 2 tasks | 8 files |
+| Phase 08 P03 | 4 min | 2 tasks | 6 files |
+| Phase 08 P04 | 4 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -76,6 +80,8 @@ progress:
 - [Phase 07]: Drove the tactical E2E route through fixed-step key holds and south-pocket activation to keep building evidence deterministic. — advanceTime-based routing proves building use in a real browser while remaining replayable for BLD-04.
 - [Phase 08]: Breakable props are authored non-blocking world objects and never reuse building collision or tactical semantics. — This keeps the loot loop isolated from Phase 07 building contracts and prevents scope bleed into steering or blocker logic.
 - [Phase 08]: Equipment replacement is gated by an explicit `equip_compare` mode with combat freeze and leave/re-enter re-arming on reject. — Deterministic compare flow is required so replay and text snapshots can explain both accept and reject branches under identical seeds.
+- [Phase 08]: Drop RNG now uses a dedicated loot-state stream isolated from spawn RNG. — This preserves replay parity while keeping loot outcomes explainable in snapshot text.
+- [Phase 08]: Effective player combat stats are derived from base constants plus equipment deltas. — This keeps gear changes deterministic and leaves room for future progression layers without mutating base tuning constants.
 
 ### Blockers
 
@@ -84,7 +90,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-06T03:32:37.607Z
-- **Stopped At:** Phase 08 planned
+- **Stopped At:** Phase 09 ready to plan
 - **Resume File:** None
 
 ## Project Reference

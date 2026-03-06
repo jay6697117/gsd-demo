@@ -22,11 +22,11 @@
 
 ### Breakables, Loot, and Equipment
 
-- [ ] **LOOT-01**: User can damage and destroy tagged breakable props during combat.
-- [ ] **LOOT-02**: Destroyed props can roll equipment drops from weighted deterministic drop tables.
-- [ ] **LOOT-03**: User can pick up equipment and place it into defined slots (`weapon`, `core`, `charm`).
-- [ ] **LOOT-04**: User can replace currently equipped items with clear stat-delta feedback.
-- [ ] **LOOT-05**: Drop outcomes are reproducible under identical seed and input timeline.
+- [x] **LOOT-01**: User can damage and destroy tagged breakable props during combat.
+- [x] **LOOT-02**: Destroyed props can roll equipment drops from weighted deterministic drop tables.
+- [x] **LOOT-03**: User can pick up equipment and place it into defined slots (`weapon`, `core`, `charm`).
+- [x] **LOOT-04**: User can replace currently equipped items with clear stat-delta feedback.
+- [x] **LOOT-05**: Drop outcomes are reproducible under identical seed and input timeline.
 
 ### Progression
 
@@ -87,11 +87,11 @@
 | BLD-02 | Phase 07 | Complete |
 | BLD-03 | Phase 07 | Complete |
 | BLD-04 | Phase 07 | Complete |
-| LOOT-01 | Phase 08 | Pending |
-| LOOT-02 | Phase 08 | Pending |
-| LOOT-03 | Phase 08 | Pending |
-| LOOT-04 | Phase 08 | Pending |
-| LOOT-05 | Phase 08 | Pending |
+| LOOT-01 | Phase 08 | Complete |
+| LOOT-02 | Phase 08 | Complete |
+| LOOT-03 | Phase 08 | Complete |
+| LOOT-04 | Phase 08 | Complete |
+| LOOT-05 | Phase 08 | Complete |
 | PROG-01 | Phase 09 | Pending |
 | PROG-02 | Phase 09 | Pending |
 | PROG-03 | Phase 09 | Pending |
@@ -116,4 +116,4 @@
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-06 after Phase 06 completion*
+*Last updated: 2026-03-06 after Phase 08 completion*

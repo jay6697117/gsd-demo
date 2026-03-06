@@ -62,9 +62,9 @@
 
 **Phase Goal:** Ship deterministic breakable -> loot -> equip combat loop.
 **Goal:** Ship deterministic breakable -> loot -> equip combat loop.
-**Execution Status:** Planned
-**Verification:** Pending (`08-VERIFICATION.md`)
-**Plans:** 0/4 plans executed
+**Execution Status:** Complete
+**Verification:** Passed (`08-VERIFICATION.md`)
+**Plans:** 4/4 plans complete
 
 **Requirements**: [LOOT-01, LOOT-02, LOOT-03, LOOT-04, LOOT-05]
 
@@ -200,4 +200,4 @@
 | AUTO-08 | Phase 11 |
 
 ---
-*Roadmap status: Phase 08 planned, ready to execute (milestone v1.1 active)*
+*Roadmap status: Phase 08 complete, Phase 09 ready to plan (milestone v1.1 active)*
