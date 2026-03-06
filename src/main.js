@@ -1469,6 +1469,11 @@ function syncSpritePosition(sprite, x, y) {
   sprite.position.set(x, 0.38, y);
 }
 
+function toFiniteNumber(value, fallback = 0) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : fallback;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
