@@ -1,3 +1,5 @@
+import { buildWorldTraversalSummary } from "./world-sectors.js";
+
 export const DETERMINISM_SCHEMA_VERSION = "1.0.0";
 export const MAX_ADVANCE_STEPS = 60 * 120;
 
@@ -24,6 +26,19 @@ function safeSortedKeys(setLike, sortedKeysFn) {
 function normalizeFixedStep(fixedStepSeconds) {
   const candidate = toFinite(fixedStepSeconds, DEFAULT_FIXED_STEP_SECONDS);
   return candidate >= MIN_FIXED_STEP_SECONDS ? candidate : DEFAULT_FIXED_STEP_SECONDS;
+}
+
+function normalizeOrderedEntries(entries, valueKey) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .filter((entry) => typeof entry?.sectorId === "string")
+    .map((entry) => ({
+      sectorId: entry.sectorId,
+      [valueKey]: valueKey === "count" ? Math.floor(toFinite(entry?.[valueKey], 0)) : toRounded(entry?.[valueKey], 6),
+    }));
 }
 
 export function computeAdvanceSteps(ms, fixedStepSeconds = DEFAULT_FIXED_STEP_SECONDS) {
@@ -56,6 +71,8 @@ export function buildDeterministicSnapshot({
   const enemies = Array.isArray(currentState.enemies) ? currentState.enemies : [];
   const slashEffects = Array.isArray(currentState.slashEffects) ? currentState.slashEffects : [];
   const particles = Array.isArray(currentState.particles) ? currentState.particles : [];
+  const world = currentState.world || {};
+  const spawnDirector = currentState.spawnDirector || {};
 
   const meta = determinismMeta || currentState.determinism || {};
 
@@ -84,6 +101,18 @@ export function buildDeterministicSnapshot({
     kills: Math.floor(toFinite(currentState.kills, 0)),
     chain: Math.floor(toFinite(currentState.chain, 0)),
     nextSpawnIn: toRounded(currentState.spawnCooldown, 3),
+    world: buildWorldTraversalSummary(world),
+    spawnState: {
+      eventSeq: Math.floor(toFinite(spawnDirector.eventSeq, 0)),
+      sectorWeights: normalizeOrderedEntries(spawnDirector.sectorWeights, "weight"),
+      sectorEnemyCounts: normalizeOrderedEntries(spawnDirector.sectorEnemyCounts, "count"),
+      lastSpawnSectorId: spawnDirector.lastSpawnSectorId ?? null,
+      spawnCooldown: toRounded(
+        spawnDirector.spawnCooldown ?? currentState.spawnCooldown,
+        3,
+      ),
+      spawnRngState: Math.floor(toFinite(spawnDirector.spawnRngState, 0)) >>> 0,
+    },
     inputState: {
       pressedKeys: safeSortedKeys(keyboardDown, sortedKeysFn),
       edgeKeys: safeSortedKeys(pressedThisStep, sortedKeysFn),

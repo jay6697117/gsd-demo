@@ -12,11 +12,18 @@ import { buildDeterministicSnapshot, computeAdvanceSteps } from "./determinism-h
 import { getComboMilestone, getDangerState } from "./feedback-rules.js";
 import {
   advanceWorldTraversalState,
-  buildWorldTraversalSummary,
   createWorldTraversalState,
+  getSectorById,
   resolveSectorIdForPosition,
+  WORLD_SECTOR_IDS,
 } from "./world-sectors.js";
 import { resolveEnemyBoundaryMovement, resolvePlayerBoundaryMovement } from "./world-collision.js";
+import {
+  buildSectorEnemyCounts,
+  computeSectorWeights,
+  createSpawnDirectorState,
+  planSpawnSector,
+} from "./spawn-director.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -40,6 +47,9 @@ const PLAYER_ATTACK_DAMAGE = 21;
 const PLAYER_ATTACK_FRONT_DOT_THRESHOLD = -0.2;
 const PLAYER_MAX_HP = 100;
 const MAX_ACTIVE_ENEMIES = 26;
+const SPAWN_DIRECTOR_SOFT_CAP = 4;
+const SPAWN_RNG_SEED_SALT = 0x6d2b79f5;
+const INITIAL_RUN_SEED = 0x57b1c4;
 const RESTART_TRANSITION_SECONDS = 0.8;
 const FEEDBACK_HIT_FLASH_PEAK = 0.36;
 const FEEDBACK_KILL_FLASH_PEAK = 0.66;
@@ -259,7 +269,7 @@ const state = {
   particles: [],
   spawnCooldown: 1.2,
   nextEnemyId: 1,
-  randomSeed: 0x57b1c4,
+  randomSeed: INITIAL_RUN_SEED,
   shakeTime: 0,
   shakeStrength: 0,
   gameOverSummary: "",
@@ -283,6 +293,11 @@ const state = {
     renderError: rendererRuntime.meta.renderError,
   },
   world: createWorldTraversalState(),
+  spawnDirector: createSpawnDirectorState({
+    sectorIds: WORLD_SECTOR_IDS,
+    spawnCooldown: 1.2,
+    spawnRngState: (INITIAL_RUN_SEED ^ SPAWN_RNG_SEED_SALT) >>> 0,
+  }),
   control: {
     pause: {
       lastTransition: "init",
@@ -499,8 +514,21 @@ function randomRangeVisual(min, max) {
   return min + (max - min) * visualRng();
 }
 
-function chooseEnemyType() {
-  const roll = simulationRng();
+function randomRangeFromUnit(min, max, unitValue) {
+  return min + (max - min) * unitValue;
+}
+
+function createSpawnSeed(seed) {
+  return (seed ^ SPAWN_RNG_SEED_SALT) >>> 0;
+}
+
+function nextSpawnRngValue() {
+  const nextState = (1664525 * (state.spawnDirector?.spawnRngState ?? 0) + 1013904223) >>> 0;
+  state.spawnDirector.spawnRngState = nextState;
+  return nextState / 0x100000000;
+}
+
+function chooseEnemyType(roll = simulationRng()) {
   if (roll < 0.42) {
     return { key: "leafling", hp: 26, speed: 3.1, points: 100, pattern: PATTERN_LEAFLING };
   }
@@ -508,6 +536,132 @@ function chooseEnemyType() {
     return { key: "embercub", hp: 34, speed: 2.65, points: 130, pattern: PATTERN_EMBERCUB };
   }
   return { key: "sparkowl", hp: 22, speed: 3.95, points: 90, pattern: PATTERN_SPARKOWL };
+}
+
+function getSectorCountById(sectorEnemyCounts, sectorId) {
+  const entry = sectorEnemyCounts.find((candidate) => candidate.sectorId === sectorId);
+  return entry?.count ?? 0;
+}
+
+function buildSpawnHeatState(sectorEnemyCounts) {
+  const playerSectorId = state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const pressure = clamp(state.enemies.length / MAX_ACTIVE_ENEMIES, 0, 1);
+  const healthDanger = clamp(1 - state.player.hp / PLAYER_MAX_HP, 0, 1);
+  const danger = clamp(healthDanger * 0.55 + pressure * 0.45, 0, 1);
+  const playerSectorCount = getSectorCountById(sectorEnemyCounts, playerSectorId);
+
+  let hotSectorId = playerSectorId;
+  let hotSectorCount = -1;
+  let reliefSectorId = playerSectorId;
+  let reliefSectorCount = Number.POSITIVE_INFINITY;
+
+  for (const sectorId of WORLD_SECTOR_IDS) {
+    const count = getSectorCountById(sectorEnemyCounts, sectorId);
+    if (count > hotSectorCount) {
+      hotSectorCount = count;
+      hotSectorId = sectorId;
+    }
+    if (sectorId !== playerSectorId && count < reliefSectorCount) {
+      reliefSectorCount = count;
+      reliefSectorId = sectorId;
+    }
+  }
+
+  return {
+    danger,
+    hotSectorId,
+    reliefSectorId,
+    sideBufferActive:
+      playerSectorCount >= SPAWN_DIRECTOR_SOFT_CAP || (pressure >= 0.65 && danger >= 0.45),
+    lastSpawnSectorId: state.spawnDirector?.lastSpawnSectorId ?? null,
+  };
+}
+
+function refreshSpawnDirectorState() {
+  const sectorEnemyCounts = buildSectorEnemyCounts({
+    sectorIds: WORLD_SECTOR_IDS,
+    enemies: state.enemies,
+  });
+  const heatState = buildSpawnHeatState(sectorEnemyCounts);
+  const sectorWeights = computeSectorWeights({
+    sectorIds: WORLD_SECTOR_IDS,
+    playerSectorId: state.world?.currentSectorId,
+    sectorEnemyCounts,
+    heatState,
+    activeEnemyCount: state.enemies.length,
+    maxActiveEnemies: MAX_ACTIVE_ENEMIES,
+    perSectorSoftCap: SPAWN_DIRECTOR_SOFT_CAP,
+  });
+
+  state.spawnDirector = {
+    ...(state.spawnDirector || createSpawnDirectorState({ sectorIds: WORLD_SECTOR_IDS })),
+    sectorWeights,
+    sectorEnemyCounts,
+    spawnCooldown: state.spawnCooldown,
+  };
+
+  return {
+    sectorEnemyCounts,
+    sectorWeights,
+    heatState,
+  };
+}
+
+function resolveSpawnPointForSector(sectorId, lateralRoll = 0.5, depthRoll = 0.5) {
+  const sector = getSectorById(sectorId);
+  if (!sector) {
+    return { x: 0, y: 0 };
+  }
+
+  const bounds = sector.bounds;
+  const inset = 0.9;
+  const minX = bounds.minX + inset;
+  const maxX = bounds.maxX - inset;
+  const minY = bounds.minY + inset;
+  const maxY = bounds.maxY - inset;
+
+  if (sectorId === "north") {
+    return {
+      x: randomRangeFromUnit(minX, maxX, lateralRoll),
+      y: randomRangeFromUnit(minY, Math.min(minY + 2.1, maxY), depthRoll),
+    };
+  }
+
+  if (sectorId === "east") {
+    return {
+      x: randomRangeFromUnit(Math.max(maxX - 2.1, minX), maxX, depthRoll),
+      y: randomRangeFromUnit(minY, maxY, lateralRoll),
+    };
+  }
+
+  if (sectorId === "south") {
+    return {
+      x: randomRangeFromUnit(minX, maxX, lateralRoll),
+      y: randomRangeFromUnit(Math.max(maxY - 2.1, minY), maxY, depthRoll),
+    };
+  }
+
+  const mainLanes = sector.lanes.filter((lane) => lane.kind === "main");
+  const laneIndex = Math.min(mainLanes.length - 1, Math.floor(lateralRoll * mainLanes.length));
+  const lane = mainLanes[Math.max(0, laneIndex)] || sector.lanes[0] || null;
+  if (!lane) {
+    return {
+      x: randomRangeFromUnit(minX, maxX, lateralRoll),
+      y: randomRangeFromUnit(minY, maxY, depthRoll),
+    };
+  }
+
+  const spread = (depthRoll - 0.5) * Math.max(0.6, lane.width * 0.65);
+  if (Math.abs(lane.entry.y - bounds.minY) < 0.15) {
+    return { x: clamp(lane.entry.x + spread, minX, maxX), y: minY + 0.55 };
+  }
+  if (Math.abs(lane.entry.y - bounds.maxY) < 0.15) {
+    return { x: clamp(lane.entry.x + spread, minX, maxX), y: maxY - 0.55 };
+  }
+  if (Math.abs(lane.entry.x - bounds.maxX) < 0.15) {
+    return { x: maxX - 0.55, y: clamp(lane.entry.y + spread, minY, maxY) };
+  }
+  return { x: minX + 0.55, y: clamp(lane.entry.y + spread, minY, maxY) };
 }
 
 function makeCanvasTexture(width, height, drawFn) {
@@ -629,17 +783,30 @@ function clamp(value, min, max) {
 }
 
 function spawnEnemy() {
-  const enemyType = chooseEnemyType();
-  const side = Math.floor(simulationRng() * 4);
-  const xEdge = randomRangeSimulation(-ARENA_HALF_WIDTH + 0.8, ARENA_HALF_WIDTH - 0.8);
-  const yEdge = randomRangeSimulation(-ARENA_HALF_HEIGHT + 0.8, ARENA_HALF_HEIGHT - 0.8);
+  const spawnTelemetry = refreshSpawnDirectorState();
+  const sectorRoll = nextSpawnRngValue();
+  const plannedSpawn = planSpawnSector({
+    directorState: state.spawnDirector,
+    sectorIds: WORLD_SECTOR_IDS,
+    playerSectorId: state.world?.currentSectorId,
+    sectorEnemyCounts: spawnTelemetry.sectorEnemyCounts,
+    heatState: spawnTelemetry.heatState,
+    activeEnemyCount: state.enemies.length,
+    maxActiveEnemies: MAX_ACTIVE_ENEMIES,
+    perSectorSoftCap: SPAWN_DIRECTOR_SOFT_CAP,
+    rngValue: sectorRoll,
+    spawnRngState: state.spawnDirector.spawnRngState,
+    spawnCooldown: state.spawnCooldown,
+  });
+  const selectedSectorId = plannedSpawn.selectedSectorId ?? state.world?.currentSectorId ?? WORLD_SECTOR_IDS[0];
+  const enemyType = chooseEnemyType(nextSpawnRngValue());
+  const spawnPoint = resolveSpawnPointForSector(selectedSectorId, nextSpawnRngValue(), nextSpawnRngValue());
 
-  let x = xEdge;
-  let y = yEdge;
-  if (side === 0) y = -ARENA_HALF_HEIGHT - 0.45;
-  if (side === 1) x = ARENA_HALF_WIDTH + 0.45;
-  if (side === 2) y = ARENA_HALF_HEIGHT + 0.45;
-  if (side === 3) x = -ARENA_HALF_WIDTH - 0.45;
+  state.spawnDirector = {
+    ...plannedSpawn.directorState,
+    spawnCooldown: state.spawnCooldown,
+    spawnRngState: state.spawnDirector.spawnRngState,
+  };
 
   const sprite = createSprite(enemyType.pattern, PALETTE_ENEMY[enemyType.key], 2.25);
   world.enemyRoot.add(sprite);
@@ -647,8 +814,8 @@ function spawnEnemy() {
   state.enemies.push({
     id: state.nextEnemyId,
     kind: enemyType.key,
-    x,
-    y,
+    x: spawnPoint.x,
+    y: spawnPoint.y,
     vx: 0,
     vy: 0,
     radius: 0.82,
@@ -657,10 +824,11 @@ function spawnEnemy() {
     speed: enemyType.speed,
     points: enemyType.points,
     flash: 0,
-    sectorId: null,
+    sectorId: selectedSectorId,
     sprite,
   });
   state.nextEnemyId += 1;
+  refreshSpawnDirectorState();
 }
 
 function addHitShake(strength, duration) {
@@ -907,13 +1075,19 @@ function startRun() {
   state.control.pause.lastReason = "start-run";
   state.control.pause.lastAt = Number(state.time.toFixed(3));
   // Keep run initialization deterministic for repeatable automated testing.
-  state.randomSeed = 0x57b1c4;
+  state.randomSeed = INITIAL_RUN_SEED;
   simulationRng = createRng(state.randomSeed);
   visualRng = createRng(createVisualSeed(state.randomSeed));
+  state.spawnDirector = createSpawnDirectorState({
+    sectorIds: WORLD_SECTOR_IDS,
+    spawnCooldown: state.spawnCooldown,
+    spawnRngState: createSpawnSeed(state.randomSeed),
+  });
 
   for (let i = 0; i < 3; i += 1) {
     spawnEnemy();
   }
+  refreshSpawnDirectorState();
 
   startScreen.classList.add("hidden");
   gameoverScreen.classList.add("hidden");
@@ -1177,19 +1351,24 @@ function updateParticles(dt) {
 }
 
 function updateSpawning(dt) {
+  refreshSpawnDirectorState();
   state.spawnCooldown -= dt;
+  state.spawnDirector.spawnCooldown = state.spawnCooldown;
   if (state.spawnCooldown > 0) {
     return;
   }
 
   if (state.enemies.length >= MAX_ACTIVE_ENEMIES) {
-    state.spawnCooldown = clamp(0.16 + randomRangeSimulation(0, 0.06), 0.12, 0.26);
+    state.spawnCooldown = clamp(0.16 + randomRangeFromUnit(0, 0.06, nextSpawnRngValue()), 0.12, 0.26);
+    state.spawnDirector.spawnCooldown = state.spawnCooldown;
     return;
   }
 
   spawnEnemy();
   const intensity = Math.min(1, state.time / 65);
-  state.spawnCooldown = clamp(1.1 - intensity * 0.78 + randomRangeSimulation(-0.05, 0.05), 0.24, 1.1);
+  state.spawnCooldown = clamp(1.1 - intensity * 0.78 + randomRangeFromUnit(-0.05, 0.05, nextSpawnRngValue()), 0.24, 1.1);
+  refreshSpawnDirectorState();
+  state.spawnDirector.spawnCooldown = state.spawnCooldown;
 }
 
 function updateHud() {
@@ -1362,7 +1541,6 @@ function renderGameToText() {
     manualSteppingMode,
     determinismMeta: state.determinism,
   });
-  snapshot.world = buildWorldTraversalSummary(state.world);
   return JSON.stringify(snapshot);
 }
 

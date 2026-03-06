@@ -7,6 +7,7 @@ import {
   DETERMINISM_SCHEMA_VERSION,
   MAX_ADVANCE_STEPS,
 } from "../src/determinism-harness.js";
+import { createSpawnDirectorState, planSpawnSector } from "../src/spawn-director.js";
 
 function buildMockState() {
   return {
@@ -60,6 +61,29 @@ function buildMockState() {
     ],
     slashEffects: [{}, {}],
     particles: [{}, {}, {}],
+    world: {
+      currentSectorId: "hub",
+      visitedSectorIds: ["hub", "north", "east"],
+      transitionSeq: 3,
+    },
+    spawnDirector: {
+      eventSeq: 4,
+      sectorWeights: [
+        { sectorId: "hub", weight: 0.34 },
+        { sectorId: "north", weight: 0.92 },
+        { sectorId: "east", weight: 1.28 },
+        { sectorId: "south", weight: 0.61 },
+      ],
+      sectorEnemyCounts: [
+        { sectorId: "hub", count: 3 },
+        { sectorId: "north", count: 1 },
+        { sectorId: "east", count: 0 },
+        { sectorId: "south", count: 2 },
+      ],
+      lastSpawnSectorId: "east",
+      spawnCooldown: 0.4937,
+      spawnRngState: 19088743,
+    },
     feedback: {
       hitFlash: 0.33333,
       killFlash: 0.55555,
@@ -115,6 +139,13 @@ test("snapshot includes stable schema/version and required sections", () => {
   assert.equal(Array.isArray(snapshot.enemies), true);
   assert.equal(Array.isArray(snapshot.inputState.pressedKeys), true);
   assert.equal(snapshot.inputState.edgeCount, 1);
+  assert.deepEqual(snapshot.world.visitedSectorIds, ["hub", "north", "east"]);
+  assert.equal(snapshot.spawnState.lastSpawnSectorId, "east");
+  assert.equal(snapshot.spawnState.spawnCooldown, 0.494);
+  assert.deepEqual(
+    snapshot.spawnState.sectorWeights.map((entry) => entry.sectorId),
+    ["hub", "north", "east", "south"],
+  );
 });
 
 test("snapshot output remains deterministic for equivalent inputs", () => {
@@ -150,4 +181,48 @@ test("snapshot sorts enemy records by id for stable assertions", () => {
     snapshot.enemies.map((enemy) => enemy.id),
     [1, 2],
   );
+});
+
+test("spawn-sector event sequence remains deterministic for an equivalent timeline", () => {
+  const sectorIds = ["hub", "north", "east", "south"];
+  const timeline = [0.12, 0.62, 0.31, 0.88];
+
+  const runTimeline = () => {
+    let directorState = createSpawnDirectorState({
+      sectorIds,
+      spawnCooldown: 0.75,
+      spawnRngState: 41,
+    });
+
+    return timeline.map((rngValue, index) => {
+      const result = planSpawnSector({
+        directorState,
+        sectorIds,
+        playerSectorId: index % 2 === 0 ? "hub" : "north",
+        sectorEnemyCounts: directorState.sectorEnemyCounts,
+        heatState: {
+          danger: 0.45,
+          hotSectorId: "hub",
+          reliefSectorId: "east",
+          sideBufferActive: index > 1,
+          lastSpawnSectorId: directorState.lastSpawnSectorId,
+        },
+        activeEnemyCount: index + 2,
+        maxActiveEnemies: 26,
+        perSectorSoftCap: 4,
+        rngValue,
+        spawnRngState: directorState.spawnRngState + 17,
+        spawnCooldown: 0.2 + index * 0.05,
+      });
+
+      directorState = result.directorState;
+      return {
+        selectedSectorId: result.selectedSectorId,
+        eventSeq: directorState.eventSeq,
+        spawnCooldown: directorState.spawnCooldown,
+      };
+    });
+  };
+
+  assert.deepEqual(runTimeline(), runTimeline());
 });
