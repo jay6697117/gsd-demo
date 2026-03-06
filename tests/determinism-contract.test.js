@@ -251,6 +251,7 @@ test("snapshot includes stable schema/version and required sections", () => {
     manualSteppingMode: false,
   });
 
+  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.1.0");
   assert.equal(snapshot.schemaVersion, DETERMINISM_SCHEMA_VERSION);
   assert.equal(typeof snapshot.determinism.fixedStepSeconds, "number");
   assert.equal(typeof snapshot.determinism.lastAdvanceSteps, "number");

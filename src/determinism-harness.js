@@ -4,7 +4,7 @@ import { summarizeLootStateForSnapshot } from "./drop-system.js";
 import { summarizeEquipmentStateForSnapshot } from "./equipment-system.js";
 import { buildWorldTraversalSummary } from "./world-sectors.js";
 
-export const DETERMINISM_SCHEMA_VERSION = "1.0.0";
+export const DETERMINISM_SCHEMA_VERSION = "1.1.0";
 export const MAX_ADVANCE_STEPS = 60 * 120;
 
 const MIN_FIXED_STEP_SECONDS = 1 / 240;
