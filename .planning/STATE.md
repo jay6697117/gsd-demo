@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 10
 current_phase_name: Skill/Talent Choice Engine
-current_plan: 1
-status: ready_to_execute
-stopped_at: Phase 10 ready to execute
-last_updated: "2026-03-06T15:44:12Z"
+current_plan: 2
+status: executing
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-06T17:05:50.617Z"
 last_activity: 2026-03-06
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-  percent: 67
+  total_plans: 20
+  completed_plans: 17
+  percent: 89
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 10
 - **Current Phase Name:** Skill/Talent Choice Engine
 - **Total Phases:** 6
-- **Current Plan:** 1
+- **Current Plan:** 2
 - **Total Plans in Phase:** 4
 - **Status:** Ready to execute
 - **Last Activity:** 2026-03-06
 - **Last Activity Description:** Planned Phase 10 with 4 plans in 4 waves
-- **Progress:** [███████░░░] 67%
+- **Progress:** [█████████░] 89%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -57,6 +57,7 @@ progress:
 | Phase 09 P02 | 3 min | 2 tasks | 3 files |
 | Phase 09 P03 | 4 min | 2 tasks | 5 files |
 | Phase 09 P04 | 4 min | 2 tasks | 2 files |
+| Phase 10 P1 | 10 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ progress:
 - [Phase 09]: Level-up arrivals queue pending events and surface through HUD cues without pausing combat. — This preserves existing control semantics while preparing a deterministic event source for Phase 10 choice consumption.
 - [Phase 09]: Progression observability ships through HUD text, banner cues, and `progressionState` snapshot fields from the same runtime source. — This keeps browser tests and text-state assertions aligned without adding a second debug export path.
 - [Phase 09]: Restart parity is verified through the real `gameover -> restart -> startRun` flow instead of a privileged reset hook. — This keeps future choice-panel work anchored to the same reset path players actually use.
+- [Phase 10]: Catalog constraints are now authored data, not inferred from panel UI state. — This keeps Wave 2 focused on mode/input wiring instead of rebuilding pool validity rules in the UI layer.
+- [Phase 10]: Offer generation is deterministic and isolated behind createOfferSeed() plus pure filtering/generation helpers. — An isolated offer RNG stream prevents reroll and choice generation from perturbing spawn, loot, or progression replay contracts.
 
 ### Blockers
 
@@ -97,8 +100,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-06T15:44:12Z
-- **Stopped At:** Phase 10 ready to execute
+- **Last session:** 2026-03-06T17:05:50.615Z
+- **Stopped At:** Completed 10-01-PLAN.md
 - **Resume File:** None
 
 ## Project Reference

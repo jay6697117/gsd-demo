@@ -112,7 +112,7 @@
 **Goal:** Implement deterministic level-up choices with skill/talent constraints.
 **Execution Status:** Planned
 **Verification:** Pending (`10-VERIFICATION.md`)
-**Plans:** 0/4 plans executed
+**Plans:** 1/4 plans executed
 
 **Requirements**: [TAL-01, TAL-02, TAL-03, TAL-04, TAL-05, TAL-06]
 
