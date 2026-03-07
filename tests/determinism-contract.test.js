@@ -319,7 +319,7 @@ test("snapshot includes stable schema/version and required sections", () => {
     manualSteppingMode: false,
   });
 
-  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.3.0");
+  assert.equal(DETERMINISM_SCHEMA_VERSION, "1.4.0");
   assert.equal(snapshot.schemaVersion, DETERMINISM_SCHEMA_VERSION);
   assert.equal(typeof snapshot.determinism.fixedStepSeconds, "number");
   assert.equal(typeof snapshot.determinism.lastAdvanceSteps, "number");
@@ -456,6 +456,12 @@ test("snapshot includes stable schema/version and required sections", () => {
     snapshot.spawnState.sectorWeights.map((entry) => entry.sectorId),
     ["hub", "north", "east", "south"],
   );
+  assert.deepEqual(snapshot.rngState, {
+    runSeed: 5745092,
+    spawnRngState: 19088743,
+    dropRngState: 3829104,
+    offerRngState: 2712847316,
+  });
 });
 
 test("snapshot output remains deterministic for equivalent inputs", () => {

@@ -9,7 +9,7 @@ import {
 import { summarizeProgressionStateForSnapshot } from "./progression-system.js";
 import { buildWorldTraversalSummary } from "./world-sectors.js";
 
-export const DETERMINISM_SCHEMA_VERSION = "1.3.0";
+export const DETERMINISM_SCHEMA_VERSION = "1.4.0";
 export const MAX_ADVANCE_STEPS = 60 * 120;
 
 const MIN_FIXED_STEP_SECONDS = 1 / 240;
@@ -76,6 +76,18 @@ function normalizeLevelUpStateSummary(levelUpState) {
 
 function normalizeUpgradeStateSummary(upgradeState) {
   return summarizeUpgradeStateForSnapshot(upgradeState);
+}
+
+function normalizeRngState(currentState, spawnDirector) {
+  const loot = currentState?.loot || {};
+  const levelUp = currentState?.levelUp || {};
+
+  return {
+    runSeed: Math.floor(toFinite(currentState?.randomSeed, 0)) >>> 0,
+    spawnRngState: Math.floor(toFinite(spawnDirector?.spawnRngState, 0)) >>> 0,
+    dropRngState: Math.floor(toFinite(loot?.dropRngState, 0)) >>> 0,
+    offerRngState: Math.floor(toFinite(levelUp?.offerRngState, 0)) >>> 0,
+  };
 }
 
 function normalizeWorldTactics(tactics) {
@@ -201,6 +213,7 @@ export function buildDeterministicSnapshot({
       ),
       spawnRngState: Math.floor(toFinite(spawnDirector.spawnRngState, 0)) >>> 0,
     },
+    rngState: normalizeRngState(currentState, spawnDirector),
     inputState: {
       pressedKeys: safeSortedKeys(keyboardDown, sortedKeysFn),
       edgeKeys: safeSortedKeys(pressedThisStep, sortedKeysFn),
