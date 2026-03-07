@@ -104,12 +104,65 @@ export async function ensureGameReady(page, baseUrl, timeoutMs = 15000) {
   );
 }
 
+export async function startGame(page, initialAdvanceMs = 900) {
+  await page.click("#start-btn");
+  return advance(page, initialAdvanceMs);
+}
+
 export async function advance(page, ms) {
   return page.evaluate((value) => JSON.parse(window.advanceTime(value)), ms);
 }
 
 export async function readSnapshot(page) {
   return page.evaluate(() => JSON.parse(window.render_game_to_text()));
+}
+
+export async function advanceUntil(
+  page,
+  predicate,
+  { stepMs = 120, maxSteps = 24, label = "advance-until" } = {},
+) {
+  let snapshot = await readSnapshot(page);
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    if (predicate(snapshot, step)) {
+      return snapshot;
+    }
+    snapshot = await advance(page, stepMs);
+  }
+
+  if (predicate(snapshot, maxSteps)) {
+    return snapshot;
+  }
+
+  throw new Error(`Advance predicate did not pass within budget: ${label}`);
+}
+
+export async function holdKeyUntil(
+  page,
+  key,
+  predicate,
+  { stepMs = 120, maxSteps = 24, label = key } = {},
+) {
+  let snapshot = await readSnapshot(page);
+  await page.keyboard.down(key);
+
+  try {
+    for (let step = 0; step < maxSteps; step += 1) {
+      if (predicate(snapshot, step)) {
+        return snapshot;
+      }
+      snapshot = await advance(page, stepMs);
+    }
+  } finally {
+    await page.keyboard.up(key);
+  }
+
+  if (predicate(snapshot, maxSteps)) {
+    return snapshot;
+  }
+
+  throw new Error(`Route step did not satisfy predicate: ${label}`);
 }
 
 export async function writeArtifacts({
@@ -136,13 +189,28 @@ export async function runScriptedTimeline(page, steps = []) {
 
   for (const step of steps) {
     const {
+      holdKey,
       keyDown,
       keyUp,
       press,
       advanceMs = 0,
+      stepMs = 120,
+      maxSteps = 24,
       predicate,
-      label = press || keyDown || keyUp || "timeline-step",
+      label = holdKey || press || keyDown || keyUp || "timeline-step",
     } = step;
+
+    if (typeof holdKey === "string") {
+      if (typeof predicate !== "function") {
+        throw new Error(`Timeline holdKey step requires predicate: ${label}`);
+      }
+      snapshot = await holdKeyUntil(page, holdKey, predicate, {
+        stepMs,
+        maxSteps,
+        label,
+      });
+      continue;
+    }
 
     if (typeof keyDown === "string") {
       await page.keyboard.down(keyDown);
