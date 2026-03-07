@@ -59,7 +59,8 @@ export function isCriticalConsoleError(message) {
     normalized.includes("webgl context could not be created") ||
     normalized.includes("error creating webgl context") ||
     normalized.includes("renderer fallback activated") ||
-    normalized.includes("favicon.ico")
+    normalized.includes("favicon.ico") ||
+    normalized.includes("failed to load resource: net::err_internet_disconnected")
   ) {
     return false;
   }

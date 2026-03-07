@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test:determinism": "node --test tests/determinism-contract.test.js",
-    "test:burst": "node tests/playwright-burst.test.js"
+    "test:burst": "node tests/playwright-burst.test.js",
+    "test:e2e:v11": "node tests/playwright-breakables-loot.test.js && node tests/playwright-progression-levels.test.js && node tests/playwright-levelup-choice.test.js && node tests/playwright-determinism-replay.test.js && node tests/playwright-restart-parity.test.js",
+    "test:regression:v11": "npm run build && node --test tests/world-sectors.test.js tests/building-system.test.js tests/building-tactics.test.js tests/building-steering.test.js tests/breakable-system.test.js tests/drop-system.test.js tests/equipment-system.test.js tests/progression-system.test.js tests/levelup-system.test.js tests/determinism-contract.test.js && node tests/playwright-burst.test.js && node tests/playwright-map-sectors.test.js && node tests/playwright-building-tactics.test.js && npm run test:e2e:v11"
   },
   "dependencies": {
     "playwright": "^1.58.2",
