@@ -15,9 +15,9 @@
 
 **Phase Goal:** Establish local run-history persistence and best-score surfaces.
 **Goal:** Establish local run-history persistence and best-score surfaces.
-**Execution Status:** Pending
+**Execution Status:** Planned
 **Verification:** Pending (`12-VERIFICATION.md`)
-**Plans:** 0/0 plans complete
+**Plans:** 0/3 plans executed
 
 **Requirements**: [META-01, META-02]
 
@@ -91,4 +91,4 @@
 | META-05 | Phase 14 |
 
 ---
-*Roadmap status: Phase 12 pending (milestone v1.2 active)*
+*Roadmap status: Phase 12 planned, ready to execute (milestone v1.2 active)*
