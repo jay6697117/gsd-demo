@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: World & Growth Overhaul
-current_phase: 0
-current_phase_name: Between Milestones
-current_plan: 0
-status: completed
-stopped_at: Milestone v1.1 complete; ready for next milestone definition
-last_updated: "2026-03-07T07:28:43Z"
+milestone: v1.2
+milestone_name: Meta Challenge Layer
+current_phase: "Not started"
+current_phase_name: defining requirements
+current_plan: "—"
+status: defining requirements
+stopped_at: Milestone v1.2 initialized
+last_updated: "2026-03-07T08:04:12Z"
 last_activity: 2026-03-07
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 24
-  completed_plans: 24
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE: PokeThrees Hunter
@@ -23,16 +23,16 @@ progress:
 
 ## Current Position
 
-- **Current Milestone:** v1.1 World & Growth Overhaul
-- **Current Phase:** 0
-- **Current Phase Name:** Between Milestones
-- **Total Phases:** 6
-- **Current Plan:** 0
-- **Total Plans in Milestone:** 24
-- **Status:** Milestone complete; ready to define the next milestone
+- **Current Milestone:** v1.2 Meta Challenge Layer
+- **Current Phase:** Not started
+- **Current Phase Name:** defining requirements
+- **Total Phases:** TBD (to be generated in ROADMAP)
+- **Current Plan:** —
+- **Total Plans in Milestone:** TBD
+- **Status:** Defining requirements
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Archived v1.1 planning artifacts and prepared the project for the next milestone cycle
-- **Progress:** [██████████] 100%
+- **Last Activity Description:** Milestone v1.2 started (requirements definition in progress)
+- **Progress:** [░░░░░░░░░░] 0%
 
 ## Performance Metrics (Historical v1.1)
 
@@ -72,6 +72,7 @@ progress:
 - [Milestone v1.1]: Effective combat stats are derived from immutable base constants plus equipment and upgrade deltas. — This keeps combat tuning composable and replay-safe.
 - [Milestone v1.1]: Progression queueing and choice consumption were split into distinct layers. — XP gain, pending level-up events, and level-up UI each now have a clear deterministic responsibility boundary.
 - [Milestone v1.1]: Regression truth lives in text-state contracts and named scripts, not screenshots. — Headless rendering noise no longer blocks milestone verification.
+- [Milestone v1.2]: Prioritize local meta history and daily challenge before persistent progression or backend sync. — This keeps the next milestone additive to the shipped run loop instead of reopening the combat core.
 
 ### Blockers
 
@@ -79,8 +80,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-07T07:25:40Z
-- **Stopped At:** Milestone v1.1 complete; ready for next milestone definition
+- **Last session:** 2026-03-07T08:04:12Z
+- **Stopped At:** Milestone v1.2 initialized
 - **Resume File:** None
 
 ## Project Reference
@@ -88,7 +89,5 @@ None
 - Project: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/PROJECT.md`
 - Milestones: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/MILESTONES.md`
 - Roadmap: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/ROADMAP.md`
-- Archived v1.1 Roadmap: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/milestones/v1.1-ROADMAP.md`
-- Archived v1.1 Requirements: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/milestones/v1.1-REQUIREMENTS.md`
-- Archived v1.1 Audit: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/milestones/v1.1-MILESTONE-AUDIT.md`
-- Retrospective: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/RETROSPECTIVE.md`
+- Requirements: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/REQUIREMENTS.md`
+- Config: `/Users/zhangjinhui/Desktop/gsd-demo/.planning/config.json`
