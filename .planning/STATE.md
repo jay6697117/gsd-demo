@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: milestone
 current_phase: 11
 current_phase_name: Automation & Determinism Hardening
-current_plan: 1
-status: ready_to_execute
-stopped_at: Phase 11 ready to execute
-last_updated: "2026-03-06T23:54:45Z"
+current_plan: 0
+status: ready_to_audit_milestone
+stopped_at: Milestone v1.1 ready to audit
+last_updated: "2026-03-07T00:28:51Z"
 last_activity: 2026-03-07
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 20
-  completed_plans: 20
-  percent: 83
+  completed_phases: 6
+  total_plans: 24
+  completed_plans: 24
+  percent: 100
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 11
 - **Current Phase Name:** Automation & Determinism Hardening
 - **Total Phases:** 6
-- **Current Plan:** 1
+- **Current Plan:** 0
 - **Total Plans in Phase:** 4
-- **Status:** Ready to execute
+- **Status:** Phase complete; milestone ready to audit
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Planned Phase 11 with 4 plans in 4 waves
-- **Progress:** [████████░░] 83%
+- **Last Activity Description:** Completed Phase 11 with 4 plans and passed phase verification
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics (Historical v1.0)
 
@@ -61,6 +61,10 @@ progress:
 | Phase 10 P2 | 13 min | 2 tasks | 6 files |
 | Phase 10 P3 | 6 min | 2 tasks | 5 files |
 | Phase 10 P4 | 7 min | 2 tasks | 5 files |
+| Phase 11 P1 | 8 min | 2 tasks | 3 files |
+| Phase 11 P2 | 9 min | 2 tasks | 2 files |
+| Phase 11 P3 | 12 min | 2 tasks | 4 files |
+| Phase 11 P4 | 11 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -104,6 +108,9 @@ progress:
 - [Phase 10]: Legacy Phase 09 browser coverage now explicitly resolves `levelup_choice` before checking restart parity. — Regression tests should evolve with new modal contracts instead of silently assuming earlier gameplay flow.
 - [Phase 11]: v1.1 automation remains on direct Node + Playwright scripts, with shared browser helpers instead of a framework migration. — This reduces duplicated lifecycle code without rewriting the existing route inventory.
 - [Phase 11]: Snapshot contract will freeze world, loot, equipment, progression, level-up, upgrade, spawn, and top-level RNG evidence under schema `1.4.0`. — Cross-pipeline replay assertions need one canonical text-state surface.
+- [Phase 11]: Replay parity is now proven across two fresh browser sessions through one shared helper and a cross-pipeline scripted route. — Determinism evidence no longer depends on same-session state rereads or duplicated browser boilerplate.
+- [Phase 11]: Restart parity is now validated by one dedicated route that resets equipment, loot, progression, level-up, and upgrade state together. — This closes the remaining v1.1 automation gap and gives verifiers a single canonical restart proof.
+- [Phase 11]: Stable named scripts `test:e2e:v11` and `test:regression:v11` now define the milestone automation surface. — Future verification no longer needs copied shell chains to re-run v1.1 evidence.
 
 ### Blockers
 
@@ -112,7 +119,7 @@ None
 ## Session Continuity
 
 - **Last session:** 2026-03-06T17:30:20Z
-- **Stopped At:** Phase 11 ready to execute
+- **Stopped At:** Milestone v1.1 ready to audit
 - **Resume File:** None
 
 ## Project Reference

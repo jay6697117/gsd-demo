@@ -47,11 +47,11 @@
 
 ### Determinism & Testability
 
-- [ ] **AUTO-04**: `window.render_game_to_text()` includes world/progression/equipment/offer/rng fields required for v1.1 assertions.
-- [ ] **AUTO-05**: `window.advanceTime(ms)` preserves deterministic outcomes across map, drop, and level-up pipelines.
-- [ ] **AUTO-06**: Automated tests cover `breakable -> drop -> equip` end-to-end flow.
-- [ ] **AUTO-07**: Automated tests cover `kill -> xp -> levelup -> choose-upgrade` end-to-end flow.
-- [ ] **AUTO-08**: Regression tests verify restart parity for progression and equipment state reset.
+- [x] **AUTO-04**: `window.render_game_to_text()` includes world/progression/equipment/offer/rng fields required for v1.1 assertions.
+- [x] **AUTO-05**: `window.advanceTime(ms)` preserves deterministic outcomes across map, drop, and level-up pipelines.
+- [x] **AUTO-06**: Automated tests cover `breakable -> drop -> equip` end-to-end flow.
+- [x] **AUTO-07**: Automated tests cover `kill -> xp -> levelup -> choose-upgrade` end-to-end flow.
+- [x] **AUTO-08**: Regression tests verify restart parity for progression and equipment state reset.
 
 ## Future Requirements (v1.2+)
 
@@ -103,11 +103,11 @@
 | TAL-04 | Phase 10 | Complete |
 | TAL-05 | Phase 10 | Complete |
 | TAL-06 | Phase 10 | Complete |
-| AUTO-04 | Phase 11 | Pending |
-| AUTO-05 | Phase 11 | Pending |
-| AUTO-06 | Phase 11 | Pending |
-| AUTO-07 | Phase 11 | Pending |
-| AUTO-08 | Phase 11 | Pending |
+| AUTO-04 | Phase 11 | Complete |
+| AUTO-05 | Phase 11 | Complete |
+| AUTO-06 | Phase 11 | Complete |
+| AUTO-07 | Phase 11 | Complete |
+| AUTO-08 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 29 total
@@ -116,4 +116,4 @@
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-07 after Phase 10 completion*
+*Last updated: 2026-03-07 after Phase 11 completion*
