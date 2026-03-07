@@ -54,6 +54,10 @@ import {
   createProgressionState,
   getLevelWindow,
 } from "./progression-system.js";
+import {
+  createStandardHistoryState,
+  loadStandardHistory,
+} from "./meta-history.js";
 
 const FIXED_STEP = 1 / 60;
 const ARENA_HALF_WIDTH = 21;
@@ -118,6 +122,9 @@ const restartButton = document.getElementById("restart-btn");
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("game-canvas");
 const canvasStage = canvas.parentElement;
+const initialStandardHistory = loadStandardHistory({
+  fallbackState: createStandardHistoryState(),
+});
 const forceNoWebgl = Boolean(globalThis.__GSD_DISABLE_WEBGL__);
 
 const feedbackOverlay = document.createElement("div");
@@ -434,6 +441,9 @@ const state = {
   }),
   upgrades: createUpgradeState(),
   progression: createProgressionState(),
+  meta: {
+    standardHistory: initialStandardHistory,
+  },
   control: {
     pause: {
       lastTransition: "init",
@@ -1879,6 +1889,9 @@ function startRun() {
   clearCombatObjects();
   clearDropVisuals();
   clearInputState();
+  state.meta.standardHistory = loadStandardHistory({
+    fallbackState: state.meta?.standardHistory || createStandardHistoryState(),
+  });
   state.mode = "playing";
   state.time = 0;
   state.score = 0;
