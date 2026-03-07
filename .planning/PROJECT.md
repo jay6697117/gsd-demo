@@ -1,19 +1,20 @@
 # PokeThrees Hunter
 
-## Current Milestone: v1.1 World & Growth Overhaul
+## Current Milestone: v1.1 World & Growth Overhaul (Shipped)
 
-**Goal:** 在保持现有高确定性战斗基线的前提下，引入可扩展地图、建筑交互、装备掉落和升级成长，显著提升中长局可玩性。
+**Goal:** Extend the original deterministic combat prototype into a replay-safe world-and-growth loop with map scale, tactical space, loot, progression, and upgrade choices.
 
-**Target features:**
-- 地图结构重构与扩展（分区、可扩展地块、可持续加内容）
-- 建筑系统丰富化（建筑类型、交互反馈、玩法价值）
-- 可破坏道具与装备掉落（不同掉落池与稀有度）
-- 击杀经验与等级成长（成长节奏可调、可验证）
-- 升级技能/天赋抉择（每次升级提供有意义选择）
+**Delivered features:**
+- Modular multi-sector world traversal with deterministic spawn/readability behavior
+- Tactical building layer with blocker, funnel, and soft-cover roles
+- Breakable props, deterministic loot drops, equipment compare/equip flow
+- Kill-driven XP progression, visible HUD progression, and pending level-up queueing
+- Deterministic level-up choice/reroll flow with immediate applied upgrade effects
+- Milestone-wide replay, restart parity, and named regression commands
 
 ## What This Is
 
-这是一个基于 Three.js 的浏览器动作小游戏：玩家在 3D 场景中操控像素风训练师，击杀持续刷新的宝可梦风格敌人并存活更久。v1 已建立“高清像素艺术（HD pixel art）+ 流畅击杀反馈 + 可自动化回归测试”的稳定基线；v1.1 将扩展地图与成长系统，让战斗循环从短局爽感升级为可持续构筑体验。目标用户是喜欢动作割草与轻养成结合的玩家，以及需要可验证迭代链路的开发演示受众。
+这是一个基于 Three.js 的浏览器动作小游戏：玩家在 3D 场景中操控像素风训练师，在可扩展分区地图中穿行、拉扯怪物、利用建筑制造战术空间、击破可破坏物获取装备、通过击杀获得经验并触发升级选择。当前代码库已经具备单局内完整的地图与成长闭环，并且关键状态可通过 `window.render_game_to_text()` 与 `window.advanceTime(ms)` 做确定性回放和自动化验证。
 
 ## Core Value
 
@@ -28,42 +29,48 @@
 - ✓ HD pixel art 视觉基线与战斗反馈链路（命中/击杀反馈）— v1.0
 - ✓ 可观测与可回归自动化接口（`window.render_game_to_text`, `window.advanceTime`）— v1.0
 - ✓ 确定性回归工装（Playwright burst + artifact）— v1.0
+- ✓ 模块化地图分区、稳定边界碰撞、分区化刷怪与可读性信号 — v1.1
+- ✓ 建筑战术层（`blocker` / `funnel` / `soft-cover`）与稳定 enemy steering — v1.1
+- ✓ 可破坏物、确定性掉落、装备槽位与 compare/equip 主链 — v1.1
+- ✓ 击杀经验、等级成长、pending level-up queue 与 HUD progression — v1.1
+- ✓ 技能/天赋选择、一次性 reroll、即时升级效果与统一 deterministic snapshot — v1.1
+- ✓ v1.1 端到端 replay parity、restart parity 与 named regression commands — v1.1
 
 ### Active
 
-- [ ] 地图支持模块化扩展（分区定义、刷新点分布、路径与碰撞可维护）
-- [ ] 建筑系统增加多类型与功能差异（遮挡、阻挡、交互收益）
-- [ ] 可破坏道具击破后按规则掉落装备（含稀有度与词条维度）
-- [ ] 击杀怪物可获得经验并触发等级提升（成长曲线可配置）
-- [ ] 升级时提供技能/天赋选择并即时影响战斗表现
+- [ ] Define the next shipped milestone with `$gsd-new-milestone`.
 
 ### Out of Scope
 
 - 官方版权素材复刻（角色与贴图使用原创像素风表达）— 避免版权风险
-- 联机对战与账号系统 — 当前里程碑聚焦单机战斗成长闭环
-- 长剧情关卡与任务树 — 先完成可重玩成长体验，再扩展叙事内容
-- 复杂背包交易与经济系统 — 避免在 v1.1 过早引入高耦合元系统
+- 联机对战与账号系统 — 当前仍聚焦单机动作成长闭环
+- 长剧情关卡与任务树 — 先保持高可重玩性的系统型战斗循环
+- 复杂背包交易与经济系统 — 已明确推迟到未来 milestone
+- 全局破坏地形物理 — 仍与确定性移动/寻路约束冲突
 
 ## Context
 
-项目已完成 v1.0 五个阶段并通过验证，当前是 brownfield 增量演进。新里程碑目标来自用户明确需求：地图与建筑重构、道具击破掉落装备、击杀升级、升级技能/天赋选择。规划将沿用 GSD 文档闭环与可追踪 REQ-ID，确保新成长链路可以被自动化回归覆盖。
+项目当前已从 v1.0 的稳定战斗基线，演进到 v1.1 的“地图 + 成长”完整闭环。现有代码库约 10,720 行 JS/TS/Python，核心验证面已经集中到 text-state contract、browser routes 与 named regression scripts，而不是依赖人工看图。下一轮工作不应该继续往 v1.1 堆功能，而应该先定义新的 milestone 边界、需求和验证策略。
 
 ## Constraints
 
-- **Tech stack**: Three.js + Vanilla JavaScript + Vite — 快速交付并保持浏览器兼容
-- **Testing**: 必须延续 Playwright + deterministic harness — 保证成长系统可重复回放验证
-- **Visual style**: HD pixel art（非模糊插值）— 满足用户明确的美术方向
-- **Compatibility**: 保持现有全局调试接口兼容（`render_game_to_text`、`advanceTime`）— 降低回归脚本漂移
-- **Scope**: v1.1 聚焦“地图+成长”玩法闭环 — 控制范围，避免并行引入经济/叙事大系统
+- **Tech stack**: Three.js + Vanilla JavaScript + Vite — 保持快速迭代和浏览器可回放性
+- **Testing**: 继续以 deterministic harness + Playwright 为一等能力 — 新功能必须进统一回归链
+- **Visual style**: HD pixel art（非模糊插值）— 保持当前视觉识别度
+- **Compatibility**: `render_game_to_text()` 和 `advanceTime(ms)` 仍是核心调试/验证接口 — 新功能不能绕开它们单独造调试面
+- **Scope discipline**: milestone 必须按闭环能力切分 — 避免把 meta/economy/persistence 和当前主循环耦在一起
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 使用 Three.js 而非纯 2D Canvas | 用户明确要求 threes.js，且便于后续扩展光照与镜头动效 | ✓ Good |
-| 先交付单场景高完成度战斗循环 | 先验证核心乐趣，再考虑内容扩展 | ✓ Good |
-| 将自动化可观测性作为一等需求（text state + advanceTime） | 降低回归成本，提升迭代稳定性 | ✓ Good |
-| v1.1 先做“地图/建筑/掉落/成长”再考虑经济系统 | 优先构建可玩性与可平衡性主链路，控制系统耦合 | — Pending |
+| 使用 Three.js 而非纯 2D Canvas | 用户明确要求 3D 场景与后续视觉扩展空间 | ✓ Good |
+| 将 `render_game_to_text()` + `advanceTime(ms)` 作为核心验证接口 | 降低回归成本，支撑 deterministic browser assertions | ✓ Good |
+| sector topology/readability 作为地图主契约 | 统一 traversal、collision、spawn、readability 的真相源 | ✓ Good |
+| building 与 breakable 语义严格隔离 | 避免 blocker/steering 规则污染 loot loop | ✓ Good |
+| effective combat stats 采用 base + delta 模型 | 让 equipment 和 upgrades 可叠加而不改写基础常量 | ✓ Good |
+| progression queue 与 level-up choice panel 分层 | 让 XP ingress、pending event、choice consumption 各自保持确定性 | ✓ Good |
+| v1.1 regression 以 named scripts 为主入口 | 降低 verifier 依赖长命令串和人工拼接成本 | ✓ Good |
 
 ---
-*Last updated: 2026-03-05 after milestone v1.1 kickoff*
+*Last updated: 2026-03-07 after v1.1 milestone completion*
