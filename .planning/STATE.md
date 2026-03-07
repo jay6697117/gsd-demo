@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Meta Challenge Layer
-current_phase: "Not started"
-current_phase_name: defining requirements
+current_phase: "12"
+current_phase_name: Local Run History Foundation
 current_plan: "—"
-status: defining requirements
-stopped_at: Milestone v1.2 initialized
-last_updated: "2026-03-07T08:04:12Z"
+status: roadmap ready
+stopped_at: Roadmap for v1.2 generated
+last_updated: "2026-03-07T08:07:40Z"
 last_activity: 2026-03-07
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -24,14 +24,14 @@ progress:
 ## Current Position
 
 - **Current Milestone:** v1.2 Meta Challenge Layer
-- **Current Phase:** Not started
-- **Current Phase Name:** defining requirements
-- **Total Phases:** TBD (to be generated in ROADMAP)
+- **Current Phase:** 12
+- **Current Phase Name:** Local Run History Foundation
+- **Total Phases:** 3
 - **Current Plan:** —
-- **Total Plans in Milestone:** TBD
-- **Status:** Defining requirements
+- **Total Plans in Phase:** 0
+- **Status:** Roadmap ready (phase planning pending)
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Milestone v1.2 started (requirements definition in progress)
+- **Last Activity Description:** v1.2 roadmap created and phase mapping finalized (12-14)
 - **Progress:** [░░░░░░░░░░] 0%
 
 ## Performance Metrics (Historical v1.1)
@@ -73,6 +73,7 @@ progress:
 - [Milestone v1.1]: Progression queueing and choice consumption were split into distinct layers. — XP gain, pending level-up events, and level-up UI each now have a clear deterministic responsibility boundary.
 - [Milestone v1.1]: Regression truth lives in text-state contracts and named scripts, not screenshots. — Headless rendering noise no longer blocks milestone verification.
 - [Milestone v1.2]: Prioritize local meta history and daily challenge before persistent progression or backend sync. — This keeps the next milestone additive to the shipped run loop instead of reopening the combat core.
+- [Milestone v1.2]: Daily challenge identity is planned around a UTC day key and deterministic seed derivation. — This gives automation and players one stable challenge contract to reason about.
 
 ### Blockers
 
@@ -80,8 +81,8 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-07T08:04:12Z
-- **Stopped At:** Milestone v1.2 initialized
+- **Last session:** 2026-03-07T08:07:40Z
+- **Stopped At:** Roadmap for v1.2 generated
 - **Resume File:** None
 
 ## Project Reference
