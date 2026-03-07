@@ -4,17 +4,17 @@ milestone: v1.2
 milestone_name: Meta Challenge Layer
 current_phase: 12
 current_phase_name: Local Run History Foundation
-current_plan: 1
-status: ready_to_execute
-stopped_at: Phase 12 ready to execute
-last_updated: "2026-03-07T10:57:48Z"
+current_plan: 2
+status: executing
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-07T14:35:30Z"
 last_activity: 2026-03-07
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 33
 ---
 
 # STATE: PokeThrees Hunter
@@ -27,12 +27,12 @@ progress:
 - **Current Phase:** 12
 - **Current Phase Name:** Local Run History Foundation
 - **Total Phases:** 3
-- **Current Plan:** 1
+- **Current Plan:** 2
 - **Total Plans in Phase:** 3
-- **Status:** Ready to execute
+- **Status:** Executing
 - **Last Activity:** 2026-03-07
-- **Last Activity Description:** Planned Phase 12 with 3 plans in 3 waves
-- **Progress:** [░░░░░░░░░░] 0%
+- **Last Activity Description:** Completed Phase 12 Plan 01 with the standard-history rule and storage foundation
+- **Progress:** [███░░░░░░░] 33%
 
 ## Performance Metrics (Historical v1.1)
 
@@ -62,6 +62,7 @@ progress:
 | Phase 11 P02 | 9 min | 2 tasks | 2 files |
 | Phase 11 P03 | 12 min | 2 tasks | 4 files |
 | Phase 11 P04 | 11 min | 2 tasks | 3 files |
+| Phase 12 P01 | 13 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ progress:
 - [Milestone v1.1]: Regression truth lives in text-state contracts and named scripts, not screenshots. — Headless rendering noise no longer blocks milestone verification.
 - [Milestone v1.2]: Prioritize local meta history and daily challenge before persistent progression or backend sync. — This keeps the next milestone additive to the shipped run loop instead of reopening the combat core.
 - [Milestone v1.2]: Daily challenge identity is planned around a UTC day key and deterministic seed derivation. — This gives automation and players one stable challenge contract to reason about.
+- [Phase 12]: Persisted standard history stores only `{ version, bestRuns, recentRuns }`, while `isExpanded` stays runtime-only UI state. — This keeps local storage stable for future daily-mode layering without persisting view state.
 
 ### Blockers
 
@@ -81,9 +83,9 @@ None
 
 ## Session Continuity
 
-- **Last session:** 2026-03-07T10:45:04.698Z
-- **Stopped At:** Phase 12 ready to execute
-- **Resume File:** .planning/phases/12-local-run-history-foundation/12-CONTEXT.md
+- **Last session:** 2026-03-07T14:35:30Z
+- **Stopped At:** Completed 12-01-PLAN.md
+- **Resume File:** .planning/phases/12-local-run-history-foundation/12-02-PLAN.md
 
 ## Project Reference
 
