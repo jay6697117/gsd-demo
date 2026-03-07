@@ -1,166 +1,91 @@
-import fs from "node:fs/promises";
+import assert from "node:assert/strict";
 import path from "node:path";
-import process from "node:process";
-import { spawn } from "node:child_process";
 
-import { chromium } from "playwright";
+import {
+  attachRuntimeCollectors,
+  assertNoCriticalRuntimeErrors,
+  cleanupSession,
+  createBrowserPage,
+  ensureGameReady,
+  holdKeyUntil,
+  readSnapshot,
+  spawnDevServer,
+  startGame,
+  advance,
+  waitForServer,
+  writeArtifacts,
+} from "./helpers/playwright-game.js";
 
-const HOST = "127.0.0.1";
 const PORT = 4178;
-const BASE_URL = `http://${HOST}:${PORT}`;
+const BASE_URL = `http://127.0.0.1:${PORT}`;
 const ARTIFACT_DIR = path.join(".planning", "artifacts", "phase-08");
 const PNG_PATH = path.join(ARTIFACT_DIR, "breakables-loot-latest.png");
 const STATE_PATH = path.join(ARTIFACT_DIR, "breakables-loot-latest.json");
 const CONSOLE_PATH = path.join(ARTIFACT_DIR, "breakables-loot-console.json");
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForServer(url, timeoutMs = 20000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        return;
-      }
-    } catch {
-      // Keep polling until ready.
-    }
-    await sleep(250);
-  }
-  throw new Error(`Dev server did not become ready within ${timeoutMs}ms: ${url}`);
-}
-
-function spawnDevServer() {
-  return spawn(
-    "npm",
-    ["run", "dev", "--", "--host", HOST, "--port", String(PORT), "--strictPort"],
-    {
-      cwd: process.cwd(),
-      env: { ...process.env, CI: "1", FORCE_COLOR: "0" },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-}
-
-function isCriticalConsoleError(message) {
-  if (!message) return false;
-  const normalized = message.toLowerCase();
-  if (
-    normalized.includes("webgl context could not be created") ||
-    normalized.includes("error creating webgl context") ||
-    normalized.includes("renderer fallback activated") ||
-    normalized.includes("favicon.ico")
-  ) {
-    return false;
-  }
-  return normalized.includes("error") || normalized.includes("uncaught") || normalized.includes("failed");
-}
-
-async function advance(page, ms) {
-  return page.evaluate((value) => JSON.parse(window.advanceTime(value)), ms);
-}
-
-async function readSnapshot(page) {
-  return page.evaluate(() => JSON.parse(window.render_game_to_text()));
-}
-
-async function holdUntil(page, code, predicate, { stepMs = 120, maxSteps = 24, label = code } = {}) {
-  let snapshot = await readSnapshot(page);
-  await page.keyboard.down(code);
-
-  try {
-    for (let step = 0; step < maxSteps; step += 1) {
-      snapshot = await advance(page, stepMs);
-      if (predicate(snapshot)) {
-        return snapshot;
-      }
-    }
-  } finally {
-    await page.keyboard.up(code);
-  }
-
-  throw new Error(`Route step did not satisfy predicate: ${label}`);
-}
-
 async function run() {
-  await fs.mkdir(ARTIFACT_DIR, { recursive: true });
-
-  const server = spawnDevServer();
+  const server = spawnDevServer({ port: PORT });
   let browser;
   let page;
-  const pageErrors = [];
-  const consoleMessages = [];
+  let collectors = { pageErrors: [], consoleMessages: [] };
 
   try {
     await waitForServer(BASE_URL);
 
-    browser = await chromium.launch({ headless: true });
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    ({ browser, page } = await createBrowserPage());
+    collectors = attachRuntimeCollectors(page);
+    await ensureGameReady(page, BASE_URL);
 
-    page.on("pageerror", (error) => {
-      pageErrors.push(String(error));
-    });
-    page.on("console", (message) => {
-      consoleMessages.push({ type: message.type(), text: message.text() });
-    });
+    let snapshot = await startGame(page, 800);
 
-    await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () =>
-        typeof window.advanceTime === "function" &&
-        typeof window.render_game_to_text === "function",
-      null,
-      { timeout: 15000 },
-    );
-
-    await page.click("#start-btn");
-    await advance(page, 800);
-
-    let snapshot = await holdUntil(page, "KeyD", (state) => state.player.x >= 1.4, {
+    snapshot = await holdKeyUntil(page, "KeyD", (state) => state.player.x >= 1.4, {
       label: "reach first breakable attack lane",
     });
     await page.keyboard.press("Space");
     snapshot = await advance(page, 320);
 
-    if (!snapshot.world?.breakables?.find((breakable) => breakable.id === "hub-crate-01")?.broken) {
-      throw new Error(`Expected first breakable to be destroyed. breakables=${JSON.stringify(snapshot.world?.breakables)}`);
-    }
+    const firstBreakable = snapshot.world?.breakables?.find((breakable) => breakable.id === "hub-crate-01");
+    assert.equal(firstBreakable?.broken, true, `Expected first breakable to be destroyed. breakables=${JSON.stringify(snapshot.world?.breakables)}`);
+    assert.equal(snapshot.lootState?.eventSeq, 1, `Expected first destroy to advance drop event sequence once. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.ok(snapshot.lootState?.dropRngState > 0, `Expected drop RNG state to advance after first destroy. lootState=${JSON.stringify(snapshot.lootState)}`);
 
-    snapshot = await holdUntil(page, "KeyD", (state) => state.equipmentState?.slots?.weapon !== null, {
+    snapshot = await holdKeyUntil(page, "KeyD", (state) => state.equipmentState?.slots?.weapon !== null, {
       label: "auto equip first weapon drop",
       maxSteps: 18,
     });
     const equippedWeapon = snapshot.equipmentState?.slots?.weapon;
-    if (!equippedWeapon) {
-      throw new Error(`Expected first auto-equip weapon. equipmentState=${JSON.stringify(snapshot.equipmentState)}`);
-    }
+    assert.ok(equippedWeapon, `Expected first auto-equip weapon. equipmentState=${JSON.stringify(snapshot.equipmentState)}`);
+    assert.equal(snapshot.lootState?.pendingPickupId, null, `Expected no pending pickup after auto-equip. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.equal(snapshot.lootState?.groundDrops?.length ?? 0, 0, `Expected first ground drop to be consumed. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.equal(snapshot.equipmentState?.derivedStats?.attackDamage, equippedWeapon.statValue, `Expected derived attack bonus to match equipped weapon. equipmentState=${JSON.stringify(snapshot.equipmentState)}`);
 
-    snapshot = await holdUntil(page, "KeyD", (state) => state.player.x >= 4.3, {
+    snapshot = await holdKeyUntil(page, "KeyD", (state) => state.player.x >= 4.3, {
       label: "move into second breakable lane",
       maxSteps: 24,
     });
-    snapshot = await holdUntil(page, "KeyS", (state) => state.player.y >= 0.8, {
+    snapshot = await holdKeyUntil(page, "KeyS", (state) => state.player.y >= 0.8, {
       label: "align with second breakable",
       maxSteps: 14,
     });
     await page.keyboard.press("Space");
     snapshot = await advance(page, 320);
 
-    snapshot = await holdUntil(page, "KeyD", (state) => state.mode === "equip_compare", {
+    const secondBreakable = snapshot.world?.breakables?.find((breakable) => breakable.id === "hub-cache-01");
+    assert.equal(secondBreakable?.broken, true, `Expected second breakable to be destroyed. breakables=${JSON.stringify(snapshot.world?.breakables)}`);
+    assert.ok(snapshot.lootState?.groundDrops?.some((drop) => drop.sourcePropId === "hub-cache-01"), `Expected second ground drop to originate from hub-cache-01. lootState=${JSON.stringify(snapshot.lootState)}`);
+
+    snapshot = await holdKeyUntil(page, "KeyD", (state) => state.mode === "equip_compare", {
       label: "trigger compare pickup",
       maxSteps: 18,
     });
 
     const compareCandidate = snapshot.equipmentState?.compareCandidate;
-    if (!compareCandidate) {
-      throw new Error(`Expected compare candidate after second pickup. equipmentState=${JSON.stringify(snapshot.equipmentState)}`);
-    }
-    if (snapshot.lootState?.pendingPickupId !== compareCandidate.dropId) {
-      throw new Error(`Expected pending pickup to match compare candidate. lootState=${JSON.stringify(snapshot.lootState)}`);
-    }
+    assert.ok(compareCandidate, `Expected compare candidate after second pickup. equipmentState=${JSON.stringify(snapshot.equipmentState)}`);
+    assert.equal(snapshot.lootState?.pendingPickupId, compareCandidate.dropId, `Expected pending pickup to match compare candidate. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.equal(snapshot.lootState?.groundDrops?.length, 1, `Expected only one compare drop to remain on ground. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.equal(snapshot.lootState?.groundDrops?.[0]?.id, compareCandidate.dropId, `Expected compare drop to stay addressable in groundDrops. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.ok(snapshot.lootState?.dropRngState > 0, `Expected drop RNG state to remain visible during compare. lootState=${JSON.stringify(snapshot.lootState)}`);
+    assert.equal(snapshot.equipmentState?.slots?.weapon?.id, equippedWeapon.id, `Expected current weapon to stay equipped during compare. equipmentState=${JSON.stringify(snapshot.equipmentState)}`);
 
     const comparedValue = compareCandidate.candidateItem?.statValue;
     await page.keyboard.press("Enter");
@@ -169,62 +94,33 @@ async function run() {
     const hudText = await page.locator("#hud").textContent();
     const finalSnapshot = await readSnapshot(page);
 
-    await page.screenshot({ path: PNG_PATH, fullPage: false });
-    await fs.writeFile(
-      STATE_PATH,
-      JSON.stringify(
-        {
-          hudText,
-          initialWeapon: equippedWeapon,
-          compareCandidate,
-          finalSnapshot,
-        },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
-    await fs.writeFile(CONSOLE_PATH, JSON.stringify(consoleMessages, null, 2), "utf-8");
+    await writeArtifacts({
+      screenshotPath: PNG_PATH,
+      statePath: STATE_PATH,
+      consolePath: CONSOLE_PATH,
+      page,
+      state: {
+        hudText,
+        initialWeapon: equippedWeapon,
+        compareCandidate,
+        finalSnapshot,
+      },
+      consoleMessages: collectors.consoleMessages,
+    });
 
-    if (finalSnapshot.mode !== "playing") {
-      throw new Error(`Expected compare mode to resolve back to playing. mode=${finalSnapshot.mode}`);
-    }
-    if (finalSnapshot.equipmentState?.slots?.weapon?.statValue !== comparedValue) {
-      throw new Error(
-        `Expected accepted weapon stat to match compare candidate. equipmentState=${JSON.stringify(finalSnapshot.equipmentState)}`,
-      );
-    }
-    if ((finalSnapshot.lootState?.groundDrops?.length ?? 0) !== 0) {
-      throw new Error(`Expected no remaining ground drops after accept. lootState=${JSON.stringify(finalSnapshot.lootState)}`);
-    }
-    if (!hudText?.includes("Gear")) {
-      throw new Error(`HUD is missing equipment summary. hud=${JSON.stringify(hudText)}`);
-    }
-    if (!Array.isArray(finalSnapshot.world?.breakables) || finalSnapshot.world.breakables.length < 5) {
-      throw new Error(`Snapshot is missing stable world.breakables summary. world=${JSON.stringify(finalSnapshot.world)}`);
-    }
-    if (!finalSnapshot.lootState || !finalSnapshot.equipmentState) {
-      throw new Error(`Snapshot is missing loot/equipment state. snapshot=${JSON.stringify(finalSnapshot)}`);
-    }
+    assert.equal(finalSnapshot.mode, "playing", `Expected compare mode to resolve back to playing. mode=${finalSnapshot.mode}`);
+    assert.equal(finalSnapshot.equipmentState?.slots?.weapon?.statValue, comparedValue, `Expected accepted weapon stat to match compare candidate. equipmentState=${JSON.stringify(finalSnapshot.equipmentState)}`);
+    assert.equal(finalSnapshot.equipmentState?.compareCandidate, null, `Expected compare candidate to clear after accept. equipmentState=${JSON.stringify(finalSnapshot.equipmentState)}`);
+    assert.equal(finalSnapshot.lootState?.pendingPickupId, null, `Expected no pending pickup after accept. lootState=${JSON.stringify(finalSnapshot.lootState)}`);
+    assert.equal(finalSnapshot.lootState?.groundDrops?.length ?? 0, 0, `Expected no remaining ground drops after accept. lootState=${JSON.stringify(finalSnapshot.lootState)}`);
+    assert.equal(finalSnapshot.equipmentState?.derivedStats?.attackDamage, comparedValue, `Expected derived attack bonus to match accepted weapon. equipmentState=${JSON.stringify(finalSnapshot.equipmentState)}`);
+    assert.ok(hudText?.includes("Gear"), `HUD is missing equipment summary. hud=${JSON.stringify(hudText)}`);
+    assert.ok(Array.isArray(finalSnapshot.world?.breakables) && finalSnapshot.world.breakables.length >= 5, `Snapshot is missing stable world.breakables summary. world=${JSON.stringify(finalSnapshot.world)}`);
+    assert.ok(finalSnapshot.lootState && finalSnapshot.equipmentState, `Snapshot is missing loot/equipment state. snapshot=${JSON.stringify(finalSnapshot)}`);
 
-    const criticalConsoleErrors = consoleMessages.filter(
-      (item) => item.type === "error" && isCriticalConsoleError(item.text),
-    );
-    if (pageErrors.length > 0 || criticalConsoleErrors.length > 0) {
-      throw new Error(
-        `Critical runtime errors detected: ${JSON.stringify({ pageErrors, criticalConsoleErrors }, null, 2)}`,
-      );
-    }
+    await assertNoCriticalRuntimeErrors(collectors);
   } finally {
-    if (page) await page.close().catch(() => {});
-    if (browser) await browser.close().catch(() => {});
-    if (server && !server.killed) {
-      server.kill("SIGTERM");
-      await sleep(250);
-      if (!server.killed) {
-        server.kill("SIGKILL");
-      }
-    }
+    await cleanupSession({ page, browser, server });
   }
 }
 

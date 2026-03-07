@@ -13,6 +13,7 @@ import {
   spawnDevServer,
   startGame,
   advance,
+  waitForServer,
   writeArtifacts,
 } from "./helpers/playwright-game.js";
 
@@ -181,6 +182,7 @@ async function run() {
   const server = spawnDevServer({ port: PORT });
 
   try {
+    await waitForServer(BASE_URL);
     const runA = await runDeterministicSession("run-a", server);
     const runB = await runDeterministicSession("run-b", server);
 

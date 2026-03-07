@@ -1,71 +1,26 @@
-import fs from "node:fs/promises";
+import assert from "node:assert/strict";
 import path from "node:path";
-import process from "node:process";
-import { spawn } from "node:child_process";
 
-import { chromium } from "playwright";
+import {
+  attachRuntimeCollectors,
+  assertNoCriticalRuntimeErrors,
+  cleanupSession,
+  createBrowserPage,
+  ensureGameReady,
+  readSnapshot,
+  spawnDevServer,
+  startGame,
+  advance,
+  waitForServer,
+  writeArtifacts,
+} from "./helpers/playwright-game.js";
 
-const HOST = "127.0.0.1";
 const PORT = 4179;
-const BASE_URL = `http://${HOST}:${PORT}`;
+const BASE_URL = `http://127.0.0.1:${PORT}`;
 const ARTIFACT_DIR = path.join(".planning", "artifacts", "phase-09");
 const PNG_PATH = path.join(ARTIFACT_DIR, "progression-levels-latest.png");
 const STATE_PATH = path.join(ARTIFACT_DIR, "progression-levels-latest.json");
 const CONSOLE_PATH = path.join(ARTIFACT_DIR, "progression-levels-console.json");
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForServer(url, timeoutMs = 20000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        return;
-      }
-    } catch {
-      // Keep polling until ready.
-    }
-    await sleep(250);
-  }
-  throw new Error(`Dev server did not become ready within ${timeoutMs}ms: ${url}`);
-}
-
-function spawnDevServer() {
-  return spawn(
-    "npm",
-    ["run", "dev", "--", "--host", HOST, "--port", String(PORT), "--strictPort"],
-    {
-      cwd: process.cwd(),
-      env: { ...process.env, CI: "1", FORCE_COLOR: "0" },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-}
-
-function isCriticalConsoleError(message) {
-  if (!message) return false;
-  const normalized = message.toLowerCase();
-  if (
-    normalized.includes("webgl context could not be created") ||
-    normalized.includes("error creating webgl context") ||
-    normalized.includes("renderer fallback activated") ||
-    normalized.includes("favicon.ico")
-  ) {
-    return false;
-  }
-  return normalized.includes("error") || normalized.includes("uncaught") || normalized.includes("failed");
-}
-
-async function advance(page, ms) {
-  return page.evaluate((value) => JSON.parse(window.advanceTime(value)), ms);
-}
-
-async function readSnapshot(page) {
-  return page.evaluate(() => JSON.parse(window.render_game_to_text()));
-}
 
 async function resolveCompareModeIfNeeded(page, snapshot) {
   if (snapshot.mode !== "equip_compare") {
@@ -107,94 +62,63 @@ async function waitForGameOver(page, maxSteps = 40) {
 }
 
 async function run() {
-  await fs.mkdir(ARTIFACT_DIR, { recursive: true });
-
-  const server = spawnDevServer();
+  const server = spawnDevServer({ port: PORT });
   let browser;
   let page;
-  const pageErrors = [];
-  const consoleMessages = [];
+  let collectors = { pageErrors: [], consoleMessages: [] };
 
   try {
     await waitForServer(BASE_URL);
 
-    browser = await chromium.launch({ headless: true });
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    ({ browser, page } = await createBrowserPage());
+    collectors = attachRuntimeCollectors(page);
+    await ensureGameReady(page, BASE_URL);
 
-    page.on("pageerror", (error) => {
-      pageErrors.push(String(error));
-    });
-    page.on("console", (message) => {
-      consoleMessages.push({ type: message.type(), text: message.text() });
-    });
-
-    await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () =>
-        typeof window.advanceTime === "function" &&
-        typeof window.render_game_to_text === "function",
-      null,
-      { timeout: 15000 },
-    );
-
-    await page.click("#start-btn");
-    let snapshot = await advance(page, 900);
+    let snapshot = await startGame(page, 900);
     const initialSnapshot = snapshot;
 
     snapshot = await runOpeningLevelUpRoute(page, 3);
 
     const postLevelSnapshot = snapshot;
-    if ((postLevelSnapshot.progressionState?.level ?? 1) < 2) {
-      throw new Error(`Expected scripted combat route to reach level 2. snapshot=${JSON.stringify(postLevelSnapshot)}`);
-    }
-    if (postLevelSnapshot.progressionState?.pendingLevelUpCount < 1) {
-      throw new Error(`Expected at least one pending level-up event. snapshot=${JSON.stringify(postLevelSnapshot)}`);
-    }
-    if (!String(postLevelSnapshot.feedback?.bannerText || "").includes("LEVEL UP")) {
-      throw new Error(`Expected LEVEL UP banner after threshold crossing. feedback=${JSON.stringify(postLevelSnapshot.feedback)}`);
-    }
+    assert.ok((postLevelSnapshot.progressionState?.level ?? 1) >= 2, `Expected scripted combat route to reach level 2. snapshot=${JSON.stringify(postLevelSnapshot)}`);
+    assert.ok(postLevelSnapshot.progressionState?.pendingLevelUpCount >= 1, `Expected at least one pending level-up event. snapshot=${JSON.stringify(postLevelSnapshot)}`);
+    assert.equal(postLevelSnapshot.mode, "levelup_choice", `Expected threshold crossing to enter levelup_choice. snapshot=${JSON.stringify(postLevelSnapshot)}`);
+    assert.equal(postLevelSnapshot.levelUpState?.activeEventId, postLevelSnapshot.progressionState?.pendingLevelUps?.[0]?.id, `Expected active level-up session to consume queue head. snapshot=${JSON.stringify(postLevelSnapshot)}`);
+    assert.ok(String(postLevelSnapshot.feedback?.bannerText || "").includes("LEVEL UP"), `Expected LEVEL UP banner after threshold crossing. feedback=${JSON.stringify(postLevelSnapshot.feedback)}`);
 
     const hudText = await page.locator("#hud").textContent();
-    if (!hudText?.includes("Lvl 2")) {
-      throw new Error(`HUD is missing level display. hud=${JSON.stringify(hudText)}`);
-    }
+    assert.ok(hudText?.includes("Lvl 2"), `HUD is missing level display. hud=${JSON.stringify(hudText)}`);
 
     const postChoiceSnapshot = await resolveLevelUpChoiceIfNeeded(page, postLevelSnapshot);
+    assert.ok((postChoiceSnapshot.upgradeState?.appliedChoices?.length ?? 0) >= 1, `Expected level-up confirm to apply one upgrade. upgradeState=${JSON.stringify(postChoiceSnapshot.upgradeState)}`);
+    assert.equal(postChoiceSnapshot.progressionState?.pendingLevelUpCount ?? 0, 0, `Expected pending level-up queue to drain after confirm. progressionState=${JSON.stringify(postChoiceSnapshot.progressionState)}`);
+
     await waitForGameOver(page);
     await page.click("#restart-btn");
     snapshot = await advance(page, 1200);
 
     const restartedSnapshot = await readSnapshot(page);
-    await page.screenshot({ path: PNG_PATH, fullPage: false });
-    await fs.writeFile(
-      STATE_PATH,
-      JSON.stringify(
-        {
-          initialSnapshot,
-          postLevelSnapshot,
-          postChoiceSnapshot,
-          restartedSnapshot,
-          hudText,
-        },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
-    await fs.writeFile(CONSOLE_PATH, JSON.stringify(consoleMessages, null, 2), "utf-8");
+    await writeArtifacts({
+      screenshotPath: PNG_PATH,
+      statePath: STATE_PATH,
+      consolePath: CONSOLE_PATH,
+      page,
+      state: {
+        initialSnapshot,
+        postLevelSnapshot,
+        postChoiceSnapshot,
+        restartedSnapshot,
+        hudText,
+      },
+      consoleMessages: collectors.consoleMessages,
+    });
 
-    if (restartedSnapshot.mode !== "playing") {
-      throw new Error(`Expected restart to return to playing. snapshot=${JSON.stringify(restartedSnapshot)}`);
-    }
-    if (restartedSnapshot.levelUpState?.activeEventId !== null) {
-      throw new Error(`Expected no active level-up state after restart. levelUpState=${JSON.stringify(restartedSnapshot.levelUpState)}`);
-    }
-    if ((restartedSnapshot.upgradeState?.appliedChoices?.length ?? 0) !== 0) {
-      throw new Error(`Expected upgrade state reset after restart. upgradeState=${JSON.stringify(restartedSnapshot.upgradeState)}`);
-    }
-    if (
-      JSON.stringify(restartedSnapshot.progressionState) !==
-      JSON.stringify({
+    assert.equal(restartedSnapshot.mode, "playing", `Expected restart to return to playing. snapshot=${JSON.stringify(restartedSnapshot)}`);
+    assert.equal(restartedSnapshot.levelUpState?.activeEventId, null, `Expected no active level-up state after restart. levelUpState=${JSON.stringify(restartedSnapshot.levelUpState)}`);
+    assert.equal((restartedSnapshot.upgradeState?.appliedChoices?.length ?? 0), 0, `Expected upgrade state reset after restart. upgradeState=${JSON.stringify(restartedSnapshot.upgradeState)}`);
+    assert.deepEqual(
+      restartedSnapshot.progressionState,
+      {
         level: 1,
         totalXp: 0,
         currentLevelStartXp: 0,
@@ -202,29 +126,13 @@ async function run() {
         pendingLevelUpCount: 0,
         pendingLevelUps: [],
         eventSeq: 0,
-      })
-    ) {
-      throw new Error(`Expected progression reset after restart. progressionState=${JSON.stringify(restartedSnapshot.progressionState)}`);
-    }
-
-    const criticalConsoleErrors = consoleMessages.filter(
-      (item) => item.type === "error" && isCriticalConsoleError(item.text),
+      },
+      `Expected progression reset after restart. progressionState=${JSON.stringify(restartedSnapshot.progressionState)}`,
     );
-    if (pageErrors.length > 0 || criticalConsoleErrors.length > 0) {
-      throw new Error(
-        `Critical runtime errors detected: ${JSON.stringify({ pageErrors, criticalConsoleErrors }, null, 2)}`,
-      );
-    }
+
+    await assertNoCriticalRuntimeErrors(collectors);
   } finally {
-    if (page) await page.close().catch(() => {});
-    if (browser) await browser.close().catch(() => {});
-    if (server && !server.killed) {
-      server.kill("SIGTERM");
-      await sleep(250);
-      if (!server.killed) {
-        server.kill("SIGKILL");
-      }
-    }
+    await cleanupSession({ page, browser, server });
   }
 }
 
